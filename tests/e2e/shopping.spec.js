@@ -106,6 +106,7 @@ test("two people share a household list in real time", async ({ browser }) => {
     await alice.getByRole("textbox", { name: "New list" }).fill("Pharmacy");
     await alice.getByRole("button", { name: "Create", exact: true }).click();
     const pharmacy = alice.getByRole("tab", { name: /Pharmacy/ });
+    const party = alice.getByRole("tab", { name: /Party/ });
     const groceries = alice.getByRole("tab", { name: /Groceries/ });
     await expect(pharmacy).toHaveAttribute("aria-selected", "true");
     await addItems(alice, "plasters");
@@ -113,6 +114,10 @@ test("two people share a household list in real time", async ({ browser }) => {
 
     await pharmacy.focus();
     await alice.keyboard.press("ArrowLeft");
+    await expect(party).toHaveAttribute("aria-selected", "true");
+    await expect(party).toBeFocused();
+
+    await alice.keyboard.press("Home");
     await expect(groceries).toHaveAttribute("aria-selected", "true");
     await expect(groceries).toBeFocused();
     await expect(groceries).toHaveAttribute("tabindex", "0");
