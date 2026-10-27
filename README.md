@@ -31,7 +31,7 @@ A shared household shopping list that updates in real time, built with Firebase 
    - **Google** → Enable
    - **Email/Password** → Enable, and also turn on **Email link (passwordless sign-in)**
 4. **Create the database**: Build → Firestore Database → Create database (production mode).
-5. **Deploy the security rules and the automatic-deletion settings**:
+5. **Deploy the security rules**:
    ```sh
    npm install -g firebase-tools
    firebase login
@@ -42,12 +42,18 @@ A shared household shopping list that updates in real time, built with Firebase 
 
 ## Automatic clean-up
 
-[firestore.indexes.json](firestore.indexes.json) turns on Firestore's automatic deletion (TTL policies) for two kinds of document:
+Automatic deletion (TTL policies) is turned off, because Firestore only allows it on projects with billing enabled (the Blaze plan). Without it, expired invite links stay in the database, but the app hides them and refuses to join with them, and purchase records are kept indefinitely.
 
-- **Invite links** are deleted once `expiresAt` has passed.
-- **Purchase records** are deleted a year after they were made, using `expireAt`. The rules require every purchase to carry this date.
+Every document still carries the dates needed to turn it on later: `expiresAt` on invites, and `expireAt` on purchases (one year after the purchase; the rules require it). After upgrading to Blaze, put this in [firestore.indexes.json](firestore.indexes.json) and run `firebase deploy --only firestore`:
 
-Firestore usually deletes expired documents within a day or so of the date passing. The app already hides expired invites in the meantime. You can see the policies under **Firestore → Time-to-live** in the Firebase console after running `firebase deploy --only firestore`.
+```json
+"fieldOverrides": [
+  { "collectionGroup": "invites", "fieldPath": "expiresAt", "ttl": true, "indexes": [] },
+  { "collectionGroup": "purchases", "fieldPath": "expireAt", "ttl": true, "indexes": [] }
+]
+```
+
+Firestore usually deletes expired documents within a day or so of the date passing. The policies show under **Firestore → Time-to-live** in the Firebase console.
 
 ## Run locally
 
@@ -213,11 +219,11 @@ households/{householdId}/items/{itemId}
 
 households/{householdId}/purchases/{purchaseId}
   itemId, listId, name, quantity, section, boughtAt, boughtBy, boughtByName
-  expireAt                                  ← automatic deletion after a year
+  expireAt                                  ← a year after purchase; TTL field if enabled
 
 households/{householdId}/invites/{code}
   createdBy, createdByName, createdAt
-  expiresAt                                 ← automatic deletion after it expires
+  expiresAt                                 ← link stops working after this; TTL field if enabled
 ```
 
 Section keys are defined in [public/js/sections.js](public/js/sections.js). An invite link looks like `?join=<householdId>-<code>`.

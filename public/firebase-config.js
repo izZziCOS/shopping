@@ -1,10 +1,10 @@
 export const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID",
+  apiKey: "AIzaSyADzHhrHbQ67LBbbTykTGG5h-Hoj7QOsqE",
+  authDomain: "shopping-622be.firebaseapp.com",
+  projectId: "shopping-622be",
+  storageBucket: "shopping-622be.firebasestorage.app",
+  messagingSenderId: "408770451834",
+  appId: "1:408770451834:web:6ef53eff6f2aa88a469ec3",
 };
 
 export const appCheckSiteKey = "";
