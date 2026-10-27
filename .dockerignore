@@ -1,0 +1,4 @@
+*
+!public
+public/**/*.d.ts
+!nginx.conf

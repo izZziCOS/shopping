@@ -1,0 +1,38 @@
+export { initializeApp } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js";
+export { ReCaptchaEnterpriseProvider, initializeAppCheck } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-app-check.js";
+export {
+  GoogleAuthProvider,
+  connectAuthEmulator,
+  getAuth,
+  isSignInWithEmailLink,
+  onAuthStateChanged,
+  sendSignInLinkToEmail,
+  signInWithEmailLink,
+  signInWithPopup,
+  signOut,
+  updateProfile,
+} from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";
+export {
+  Timestamp,
+  arrayRemove,
+  arrayUnion,
+  collection,
+  connectFirestoreEmulator,
+  deleteDoc,
+  deleteField,
+  doc,
+  getDoc,
+  getDocs,
+  initializeFirestore,
+  limit,
+  onSnapshot,
+  orderBy,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  query,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+  where,
+  writeBatch,
+} from "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js";

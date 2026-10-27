@@ -1,0 +1,289 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isMember(householdId) {
+      return signedIn()
+        && request.auth.uid in get(/databases/$(database)/documents/households/$(householdId)).data.members;
+    }
+
+    function isOnlyMember(householdId) {
+      return signedIn()
+        && get(/databases/$(database)/documents/households/$(householdId)).data.members == [request.auth.uid];
+    }
+
+    function isMemberAfter(householdId) {
+      return signedIn()
+        && request.auth.uid in getAfter(/databases/$(database)/documents/households/$(householdId)).data.members;
+    }
+
+    function listExistsAfter(householdId, listId) {
+      return isValidId(listId)
+        && existsAfter(/databases/$(database)/documents/households/$(householdId)/lists/$(listId));
+    }
+
+    function isValidText(value, maxLength) {
+      return value is string && value.size() > 0 && value.size() <= maxLength;
+    }
+
+    function isValidQuantity(value) {
+      return value is string && value.size() <= 20;
+    }
+
+    function isValidNote(value) {
+      return value is string && value.size() <= 200;
+    }
+
+    function isValidId(value) {
+      return value is string && value.matches('^[A-Za-z0-9]{8,40}$');
+    }
+
+    function isValidSection(value) {
+      return value is string && value.matches('^[a-z]{1,20}$');
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function addedMembers() {
+      return request.resource.data.members.toSet().difference(resource.data.members.toSet());
+    }
+
+    function removedMembers() {
+      return resource.data.members.toSet().difference(request.resource.data.members.toSet());
+    }
+
+    function changedMemberInfo() {
+      return request.resource.data.memberInfo.diff(resource.data.memberInfo).affectedKeys();
+    }
+
+    function memberInfoMatchesMembers(data) {
+      let infoKeys = data.memberInfo.keys().toSet();
+      let members = data.members.toSet();
+      return infoKeys.difference(members).size() == 0
+        && members.difference(infoKeys).size() == 0
+        && data.members.size() == members.size();
+    }
+
+    function isValidMemberInfo(info) {
+      return info.keys().hasOnly(['name', 'joinedAt', 'invite'])
+        && isValidText(info.name, 100)
+        && info.joinedAt == request.time;
+    }
+
+    function isValidNewHousehold(data) {
+      let me = request.auth.uid;
+      return data.keys().hasOnly(['name', 'ownerId', 'members', 'memberInfo', 'createdAt'])
+        && isValidText(data.name, 60)
+        && data.ownerId == me
+        && data.members == [me]
+        && data.memberInfo.keys().hasOnly([me])
+        && isValidMemberInfo(data.memberInfo[me])
+        && data.memberInfo[me].invite == null
+        && data.createdAt == request.time;
+    }
+
+    function isJoining(householdId) {
+      let me = request.auth.uid;
+      let info = request.resource.data.memberInfo[me];
+      return changedKeys().hasOnly(['members', 'memberInfo'])
+        && !(me in resource.data.members)
+        && me in request.resource.data.members
+        && request.resource.data.members.size() <= 20
+        && addedMembers().hasOnly([me])
+        && removedMembers().size() == 0
+        && changedMemberInfo().hasOnly([me])
+        && memberInfoMatchesMembers(request.resource.data)
+        && isValidMemberInfo(info)
+        && isValidId(info.invite)
+        && get(/databases/$(database)/documents/households/$(householdId)/invites/$(info.invite)).data.expiresAt > request.time;
+    }
+
+    function isLeaving() {
+      let me = request.auth.uid;
+      let ownerBefore = resource.data.ownerId;
+      let ownerAfter = request.resource.data.ownerId;
+      return changedKeys().hasOnly(['members', 'memberInfo', 'ownerId'])
+        && me in resource.data.members
+        && !(me in request.resource.data.members)
+        && removedMembers().hasOnly([me])
+        && addedMembers().size() == 0
+        && changedMemberInfo().hasOnly([me])
+        && memberInfoMatchesMembers(request.resource.data)
+        && (
+          (ownerBefore != me && ownerAfter == ownerBefore)
+          || (ownerBefore == me && request.resource.data.members.size() == 0)
+          || (ownerBefore == me && ownerAfter in request.resource.data.members)
+        );
+    }
+
+    function isRemovingMember() {
+      let me = request.auth.uid;
+      return resource.data.ownerId == me
+        && changedKeys().hasOnly(['members', 'memberInfo'])
+        && removedMembers().size() == 1
+        && !removedMembers().hasAny([me])
+        && addedMembers().size() == 0
+        && changedMemberInfo().difference(removedMembers()).size() == 0
+        && memberInfoMatchesMembers(request.resource.data);
+    }
+
+    function isRenamingSelf() {
+      let me = request.auth.uid;
+      let before = resource.data.memberInfo[me];
+      let after = request.resource.data.memberInfo[me];
+      return me in resource.data.members
+        && changedKeys().hasOnly(['memberInfo'])
+        && changedMemberInfo().hasOnly([me])
+        && after.diff(before).affectedKeys().hasOnly(['name'])
+        && isValidText(after.name, 100);
+    }
+
+    function isEditingHousehold() {
+      let data = request.resource.data;
+      return request.auth.uid in resource.data.members
+        && changedKeys().hasOnly(['name', 'sectionOrder'])
+        && isValidText(data.name, 60)
+        && (!('sectionOrder' in data) || (data.sectionOrder is list && data.sectionOrder.size() <= 20));
+    }
+
+    function isValidNewList(data) {
+      return data.keys().hasOnly(['name', 'createdBy', 'createdAt'])
+        && isValidText(data.name, 40)
+        && data.createdBy == request.auth.uid
+        && data.createdAt == request.time;
+    }
+
+    function itemFields() {
+      return [
+        'listId', 'name', 'quantity', 'note', 'section',
+        'bought', 'boughtAt', 'boughtBy', 'boughtByName', 'purchaseId',
+        'addedBy', 'addedByName', 'createdAt',
+      ];
+    }
+
+    function isValidItemShape(data) {
+      return data.keys().hasOnly(itemFields())
+        && data.keys().hasAll(itemFields())
+        && isValidText(data.name, 100)
+        && isValidQuantity(data.quantity)
+        && isValidNote(data.note)
+        && isValidSection(data.section)
+        && isValidId(data.listId)
+        && data.bought is bool;
+    }
+
+    function isNotBought(data) {
+      return data.bought == false
+        && data.boughtAt == null
+        && data.boughtBy == null
+        && data.boughtByName == null
+        && data.purchaseId == null;
+    }
+
+    function isBoughtNow(householdId, data) {
+      return data.bought == true
+        && data.boughtAt == request.time
+        && data.boughtBy == request.auth.uid
+        && isValidText(data.boughtByName, 100)
+        && isValidId(data.purchaseId)
+        && existsAfter(/databases/$(database)/documents/households/$(householdId)/purchases/$(data.purchaseId));
+    }
+
+    function isAddedNow(data) {
+      return data.addedBy == request.auth.uid
+        && isValidText(data.addedByName, 100)
+        && data.createdAt == request.time;
+    }
+
+    function isValidNewItem(householdId, data) {
+      return isValidItemShape(data)
+        && isNotBought(data)
+        && isAddedNow(data)
+        && listExistsAfter(householdId, data.listId);
+    }
+
+    function isValidItemUpdate(householdId) {
+      let data = request.resource.data;
+      let keepsAddedInfo = !changedKeys().hasAny(['addedBy', 'addedByName', 'createdAt']);
+      let keepsBoughtInfo = !changedKeys().hasAny(['bought', 'boughtAt', 'boughtBy', 'boughtByName', 'purchaseId']);
+      let keepsList = !changedKeys().hasAny(['listId']);
+      return isValidItemShape(data)
+        && (keepsAddedInfo || (resource.data.bought == true && isNotBought(data) && isAddedNow(data)))
+        && (keepsBoughtInfo || isNotBought(data) || isBoughtNow(householdId, data))
+        && (keepsList || listExistsAfter(householdId, data.listId));
+    }
+
+    function isValidNewPurchase(data) {
+      return data.keys().hasOnly(['itemId', 'listId', 'name', 'quantity', 'section', 'boughtAt', 'boughtBy', 'boughtByName', 'expireAt'])
+        && isValidId(data.itemId)
+        && isValidId(data.listId)
+        && isValidText(data.name, 100)
+        && isValidQuantity(data.quantity)
+        && isValidSection(data.section)
+        && data.boughtAt == request.time
+        && data.boughtBy == request.auth.uid
+        && isValidText(data.boughtByName, 100)
+        && data.expireAt is timestamp
+        && data.expireAt > request.time + duration.value(360, 'd')
+        && data.expireAt < request.time + duration.value(370, 'd');
+    }
+
+    function isValidNewInvite(code, data) {
+      return isValidId(code)
+        && data.keys().hasOnly(['createdBy', 'createdByName', 'createdAt', 'expiresAt'])
+        && data.createdBy == request.auth.uid
+        && isValidText(data.createdByName, 100)
+        && data.createdAt == request.time
+        && data.expiresAt is timestamp
+        && data.expiresAt > request.time
+        && data.expiresAt <= request.time + duration.value(8, 'd');
+    }
+
+    match /households/{householdId} {
+      allow read: if signedIn() && request.auth.uid in resource.data.members;
+      allow create: if signedIn() && isValidNewHousehold(request.resource.data);
+      allow update: if signedIn() && (
+        isJoining(householdId)
+        || isLeaving()
+        || isRemovingMember()
+        || isRenamingSelf()
+        || isEditingHousehold()
+      );
+      allow delete: if signedIn() && resource.data.members == [request.auth.uid];
+
+      match /lists/{listId} {
+        allow read, delete: if isMember(householdId);
+        allow create: if isMemberAfter(householdId) && isValidId(listId) && isValidNewList(request.resource.data);
+        allow update: if isMember(householdId)
+          && changedKeys().hasOnly(['name'])
+          && isValidText(request.resource.data.name, 40);
+      }
+
+      match /items/{itemId} {
+        allow read, delete: if isMember(householdId);
+        allow create: if isMember(householdId) && isValidNewItem(householdId, request.resource.data);
+        allow update: if isMember(householdId) && isValidItemUpdate(householdId);
+      }
+
+      match /purchases/{purchaseId} {
+        allow read: if isMember(householdId);
+        allow delete: if isMember(householdId)
+          && (resource.data.boughtBy == request.auth.uid || isOnlyMember(householdId));
+        allow create: if isMember(householdId) && isValidNewPurchase(request.resource.data);
+      }
+
+      match /invites/{code} {
+        allow get: if signedIn();
+        allow list, delete: if isMember(householdId);
+        allow create: if isMember(householdId) && isValidNewInvite(code, request.resource.data);
+      }
+    }
+  }
+}

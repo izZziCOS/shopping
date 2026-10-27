@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#2f7d5b">
+  <title>Shopping List</title>
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Shopping">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="js/main.js"></script>
+  <script src="js/boot.js"></script>
+</head>
+<body>
+  <section id="loading-view" class="view centered">
+    <div class="stack centered-text">
+      <p id="loading-message" class="muted" role="status">Loading…</p>
+      <button id="retry-start" class="primary" type="button" hidden>Try again</button>
+    </div>
+  </section>
+
+  <section id="signin-view" class="view centered" hidden>
+    <div class="card stack signin-card">
+      <h1>Shopping List</h1>
+      <p id="invite-notice" class="notice" hidden>You've been invited to a household. Sign in to join it.</p>
+      <p class="muted">One shared list for your household. Everyone sees what's been bought as it happens.</p>
+
+      <div id="in-app-notice" class="notice warning stack" hidden>
+        <p>Google sign-in doesn't work inside this app's built-in browser. Open this page in Safari or Chrome, or sign in with your email below.</p>
+        <button id="copy-page-link" type="button">Copy page link</button>
+      </div>
+
+      <div id="google-signin" class="stack">
+        <button id="signin-button" class="primary" type="button">Sign in with Google</button>
+        <div class="divider"><span>or</span></div>
+      </div>
+
+      <form id="email-form" class="stack">
+        <input id="email-name" class="field" placeholder="Your name" maxlength="40" autocomplete="given-name" required aria-label="Your name">
+        <input id="email-address" class="field" type="email" placeholder="you@example.com" autocomplete="email" required aria-label="Email address">
+        <button type="submit">Email me a sign-in link</button>
+      </form>
+      <p id="email-sent" class="notice" hidden></p>
+    </div>
+  </section>
+
+  <section id="households-view" class="view" hidden>
+    <header class="topbar">
+      <button id="households-back" class="ghost" type="button" hidden>← Back</button>
+      <h1>Households</h1>
+    </header>
+
+    <div id="households-section" class="stack-section">
+      <h2 class="section-title">Your households</h2>
+      <ul id="household-list" class="items"></ul>
+    </div>
+
+    <section id="current-household" class="card stack">
+      <div class="section-header compact">
+        <h2 id="current-household-name"></h2>
+        <button id="rename-household" class="ghost small" type="button">Rename</button>
+      </div>
+
+      <div class="stack-tight">
+        <h3 class="section-title">Members</h3>
+        <ul id="member-list" class="rows"></ul>
+      </div>
+
+      <div class="stack-tight">
+        <div class="section-header compact">
+          <h3 class="section-title">Invite links</h3>
+          <button id="new-invite" class="ghost small" type="button">New link</button>
+        </div>
+        <ul id="invite-list" class="rows"></ul>
+        <p id="invite-empty" class="muted small">No active invite links. Each link works for 7 days.</p>
+      </div>
+
+      <details class="stack-tight route">
+        <summary class="section-title">Shop route</summary>
+        <p class="muted small">Put the sections in the order you walk through the shop. Items on your lists are grouped in this order.</p>
+        <ol id="section-order" class="rows"></ol>
+      </details>
+
+      <button id="leave-household" class="danger" type="button">Leave household</button>
+    </section>
+
+    <form id="create-form" class="card stack">
+      <h2>Create a household</h2>
+      <input id="create-name" class="field" placeholder="e.g. Home" maxlength="60" required autocomplete="off" aria-label="Household name">
+      <button class="primary" type="submit">Create</button>
+    </form>
+
+    <form id="join-form" class="card stack">
+      <h2>Join a household</h2>
+      <p class="muted small">Paste the invite link or code someone shared with you.</p>
+      <input id="join-code" class="field" placeholder="Invite link or code" required autocomplete="off" aria-label="Invite link or code">
+      <button type="submit">Join</button>
+    </form>
+
+    <section id="install-card" class="card stack" hidden>
+      <h2>Install the app</h2>
+      <p class="muted small">Add Shopping List to your home screen. It opens like an app and works without signal in the shop.</p>
+      <button id="install-app" class="primary" type="button" hidden>Install</button>
+      <p id="install-ios-hint" class="notice" hidden>On iPhone or iPad: tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</p>
+    </section>
+
+    <footer class="account">
+      <span class="muted small">Signed in as <strong id="account-name"></strong></span>
+      <span class="account-actions">
+        <button id="change-name" class="ghost small" type="button">Change name</button>
+        <button id="signout-button" class="ghost danger small" type="button">Sign out</button>
+      </span>
+    </footer>
+  </section>
+
+  <section id="list-view" class="view" hidden>
+    <header class="topbar">
+      <div class="title-block">
+        <h1 id="household-name"></h1>
+        <p id="household-meta" class="muted small"></p>
+      </div>
+      <div class="topbar-actions">
+        <button id="invite-button" class="ghost" type="button">Invite</button>
+        <button id="switch-button" class="ghost" type="button">Households</button>
+      </div>
+    </header>
+
+    <div class="tabs-bar">
+      <div id="list-tabs" class="tabs" role="tablist" aria-label="Lists"></div>
+      <button id="list-settings" class="icon-button" type="button" aria-label="List settings">⋯</button>
+      <button id="new-list" class="icon-button" type="button" aria-label="New list">＋</button>
+    </div>
+
+    <p id="sync-status" class="sync-status" role="status" hidden></p>
+
+    <div id="list-content" role="tabpanel" tabindex="0">
+      <form id="add-form" class="add-form">
+        <input id="item-name" class="field" placeholder="Add milk, eggs…" maxlength="1000" required autocomplete="off" list="item-suggestions" aria-label="Items to add, separated by commas">
+        <input id="item-quantity" class="field" placeholder="Qty" maxlength="20" autocomplete="off" aria-label="Quantity">
+        <button class="primary" type="submit">Add</button>
+      </form>
+      <datalist id="item-suggestions"></datalist>
+
+      <div id="suggestions-section" class="suggestions" hidden>
+        <span class="section-title">Buy again</span>
+        <div id="suggestions" class="chips"></div>
+      </div>
+
+      <div class="section-header">
+        <h2 class="section-title">To buy <span id="to-buy-count" class="count"></span></h2>
+        <button id="share-list" class="ghost small" type="button" hidden>Share</button>
+      </div>
+      <div id="to-buy-groups" class="groups"></div>
+      <p id="to-buy-empty" class="empty" hidden>Nothing left to buy 🎉</p>
+
+      <div id="bought-section">
+        <div class="section-header">
+          <h2 class="section-title">Bought <span id="bought-count" class="count"></span></h2>
+          <button id="clear-bought" class="ghost small" type="button">Clear</button>
+        </div>
+        <ul id="bought-list" class="items bought"></ul>
+      </div>
+    </div>
+
+    <div id="no-lists" class="card stack" hidden>
+      <p>This household doesn't have any lists yet.</p>
+      <button id="create-first-list" class="primary" type="button">Create a list</button>
+    </div>
+
+    <div class="list-footer">
+      <button id="history-button" class="ghost" type="button">Purchase history</button>
+    </div>
+  </section>
+
+  <section id="history-view" class="view" hidden>
+    <header class="topbar">
+      <button id="history-back" class="ghost" type="button">← Back</button>
+      <h1>History</h1>
+    </header>
+    <div id="history-groups" class="history"></div>
+    <p id="history-empty" class="empty" hidden>Nothing bought yet.</p>
+    <p id="history-limit" class="muted small centered-text" hidden>Showing the most recent purchases.</p>
+  </section>
+
+  <dialog id="edit-dialog" class="dialog" aria-labelledby="edit-title">
+    <form id="edit-form" class="stack">
+      <h2 id="edit-title">Edit item</h2>
+      <label class="field-label">
+        Name
+        <input id="edit-name" class="field" maxlength="100" required autocomplete="off">
+      </label>
+      <label class="field-label">
+        Quantity
+        <input id="edit-quantity" class="field" maxlength="20" autocomplete="off">
+      </label>
+      <label class="field-label">
+        Note
+        <textarea id="edit-note" class="field" maxlength="200" rows="2" placeholder="e.g. the green brand, only if on sale"></textarea>
+      </label>
+      <label class="field-label">
+        Shop section
+        <select id="edit-section" class="field"></select>
+      </label>
+      <label id="edit-list-label" class="field-label">
+        List
+        <select id="edit-list" class="field"></select>
+      </label>
+      <p id="edit-stats" class="muted small"></p>
+      <button id="edit-remove" class="danger" type="button">Remove item</button>
+      <div class="dialog-actions">
+        <button id="edit-cancel" class="ghost" type="button">Cancel</button>
+        <button class="primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="text-dialog" class="dialog" aria-labelledby="text-title">
+    <form id="text-form" class="stack">
+      <h2 id="text-title"></h2>
+      <input id="text-input" class="field" required autocomplete="off" aria-labelledby="text-title">
+      <div class="dialog-actions">
+        <button id="text-cancel" class="ghost" type="button">Cancel</button>
+        <button id="text-submit" class="primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirm-dialog" class="dialog" aria-labelledby="confirm-title" aria-describedby="confirm-message">
+    <div class="stack">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-message" class="muted"></p>
+      <div class="dialog-actions">
+        <button id="confirm-cancel" class="ghost" type="button">Cancel</button>
+        <button id="confirm-ok" class="primary" type="button">OK</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="copy-dialog" class="dialog" aria-labelledby="copy-title" aria-describedby="copy-message">
+    <div class="stack">
+      <h2 id="copy-title"></h2>
+      <p id="copy-message" class="muted small"></p>
+      <textarea id="copy-input" class="field" readonly rows="3" aria-labelledby="copy-title"></textarea>
+      <div class="dialog-actions">
+        <button id="copy-done" class="ghost" type="button">Done</button>
+        <button id="copy-button" class="primary" type="button">Copy</button>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="list-dialog" class="dialog" aria-labelledby="list-dialog-title">
+    <form id="list-form" class="stack">
+      <h2 id="list-dialog-title">List settings</h2>
+      <label class="field-label">
+        Name
+        <input id="list-name" class="field" maxlength="40" required autocomplete="off">
+      </label>
+      <button id="delete-list" class="danger" type="button">Delete list</button>
+      <div class="dialog-actions">
+        <button id="list-cancel" class="ghost" type="button">Cancel</button>
+        <button class="primary" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden>
+    <span id="toast-message"></span>
+    <button id="toast-action" class="toast-action" type="button" hidden></button>
+  </div>
+</body>
+</html>

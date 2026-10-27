@@ -1,0 +1,39 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "allowJs": true,
+    "checkJs": true,
+    "strict": true,
+    "noImplicitAny": false,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "paths": {
+      "https://www.gstatic.com/firebasejs/13.1.0/firebase-app.js": [
+        "./node_modules/firebase/app"
+      ],
+      "https://www.gstatic.com/firebasejs/13.1.0/firebase-app-check.js": [
+        "./node_modules/firebase/app-check"
+      ],
+      "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js": [
+        "./node_modules/firebase/auth"
+      ],
+      "https://www.gstatic.com/firebasejs/13.1.0/firebase-firestore.js": [
+        "./node_modules/firebase/firestore"
+      ]
+    }
+  },
+  "include": [
+    "public/**/*.js",
+    "public/**/*.d.ts"
+  ],
+  "exclude": [
+    "public/sw.js"
+  ]
+}
