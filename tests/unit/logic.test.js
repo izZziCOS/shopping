@@ -7,6 +7,9 @@ import {
   SLOW_SYNC_MS,
   activeInvites,
   canUndoPurchase,
+  compareItems,
+  describeInterval,
+  dueStaples,
   extractJoinParam,
   frequentItems,
   groupByName,
@@ -15,10 +18,11 @@ import {
   limitAdds,
   limitMessage,
   listAsText,
+  itemSortKey,
   memberEntries,
-  moveEntry,
   nextOwner,
   normalize,
+  orderBetween,
   parseInvite,
   planAdd,
   randomCode,
@@ -171,6 +175,55 @@ describe("purchase history helpers", () => {
   });
 });
 
+describe("dueStaples", () => {
+  const now = NOW.getTime();
+  const bought = (name, ...daysAgo) => daysAgo.map((days) => ({ name, quantity: "1 L", boughtAt: daysBefore(days) }));
+  const due = (purchases) => dueStaples(purchases, now).map((staple) => [staple.name, staple.intervalDays]);
+
+  test("suggests something bought regularly once its usual interval is nearly up", () => {
+    assert.deepEqual(due(bought("Milk", 7, 14, 21)), [["Milk", 7]]);
+    assert.deepEqual(due(bought("Milk", 6, 13, 20)), [["Milk", 7]]);
+    assert.deepEqual(due(bought("Milk", 3, 10, 17)), []);
+  });
+
+  test("needs purchases on at least three different days", () => {
+    assert.deepEqual(due(bought("Milk", 7, 14)), []);
+    assert.deepEqual(due(bought("Milk", 7, 7, 14, 14)), []);
+    assert.deepEqual(due(bought("Milk", 7, 7, 14, 21)), [["Milk", 7]]);
+  });
+
+  test("an odd gap doesn't throw off the usual interval", () => {
+    assert.deepEqual(due(bought("Coffee", 10, 20, 30, 70)), [["Coffee", 10]]);
+  });
+
+  test("stops suggesting things the household seems to have stopped buying", () => {
+    assert.deepEqual(due(bought("Milk", 30, 37, 44)), []);
+  });
+
+  test("ignores very long intervals", () => {
+    assert.deepEqual(due(bought("Paint", 90, 180, 270)), []);
+  });
+
+  test("lists the most overdue first and uses the latest spelling and quantity", () => {
+    const purchases = [
+      { name: "milk", quantity: "2 L", boughtAt: daysBefore(7) },
+      ...bought("Milk", 14, 21),
+      ...bought("Bread", 4, 7, 10),
+    ];
+    const staples = dueStaples(purchases, now);
+    assert.deepEqual(staples.map((staple) => [staple.name, staple.quantity]), [["Bread", "1 L"], ["milk", "2 L"]]);
+  });
+});
+
+describe("describeInterval", () => {
+  test("reads naturally", () => {
+    assert.equal(describeInterval(1), "daily");
+    assert.equal(describeInterval(7), "weekly");
+    assert.equal(describeInterval(14), "every 2 weeks");
+    assert.equal(describeInterval(10), "every 10 days");
+  });
+});
+
 describe("sections", () => {
   test("sectionOf falls back to other for unknown sections", () => {
     assert.equal(sectionOf({ section: "dairy" }), "dairy");
@@ -187,15 +240,36 @@ describe("sections", () => {
   });
 });
 
-describe("moveEntry", () => {
-  test("swaps neighbours", () => {
-    assert.deepEqual(moveEntry(["a", "b", "c"], 1, -1), ["b", "a", "c"]);
-    assert.deepEqual(moveEntry(["a", "b", "c"], 1, 1), ["a", "c", "b"]);
+describe("item order", () => {
+  const older = { id: "older", createdAt: hoursBefore(5) };
+  const newer = { id: "newer", createdAt: hoursBefore(1) };
+  const sorted = (items) => [...items].sort(compareItems).map((item) => item.id);
+
+  test("items nobody has moved are newest first", () => {
+    assert.deepEqual(sorted([older, newer]), ["newer", "older"]);
+    assert.equal(itemSortKey({ ...older, order: null }), itemSortKey(older));
   });
 
-  test("refuses to move past either end", () => {
-    assert.equal(moveEntry(["a", "b"], 0, -1), null);
-    assert.equal(moveEntry(["a", "b"], 1, 1), null);
+  test("a moved item lands between its new neighbours", () => {
+    const top = { id: "top", createdAt: hoursBefore(2) };
+    const moved = { id: "moved", createdAt: hoursBefore(9), order: orderBetween(newer, top) };
+    assert.deepEqual(sorted([older, top, moved, newer]), ["newer", "moved", "top", "older"]);
+  });
+
+  test("moving to either end goes just past the end item", () => {
+    assert.equal(orderBetween(null, newer), itemSortKey(newer) - 1);
+    assert.equal(orderBetween(older, null), itemSortKey(older) + 1);
+    assert.equal(orderBetween(null, null), null);
+  });
+
+  test("items added after a move still appear on top", () => {
+    const moved = { id: "moved", createdAt: hoursBefore(9), order: orderBetween(null, newer) };
+    const added = { id: "added", createdAt: hoursBefore(0) };
+    assert.deepEqual(sorted([moved, newer, added]), ["added", "moved", "newer"]);
+  });
+
+  test("equal sort keys fall back to newest first", () => {
+    assert.deepEqual(sorted([{ ...older, order: 1 }, { ...newer, order: 1 }]), ["newer", "older"]);
   });
 });
 

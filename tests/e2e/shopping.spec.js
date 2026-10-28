@@ -1,5 +1,17 @@
 import { expect, test } from "@playwright/test";
-import { addItems, bought, lastSharedText, lastSharedUrl, newUser, resetEmulators, signIn, toBuy } from "./helpers.js";
+import {
+  addItems,
+  bought,
+  emailedLink,
+  lastSharedText,
+  lastSharedUrl,
+  newUser,
+  requestSignInLink,
+  resetEmulators,
+  seedPurchases,
+  signIn,
+  toBuy,
+} from "./helpers.js";
 
 test.beforeEach(async ({ request }) => {
   await resetEmulators(request);
@@ -154,4 +166,100 @@ test("joining while offline says so instead of blaming the link", async ({ brows
   await dave.getByLabel("Invite link or code").fill("AAAAAAAAAAAAAAAAAAAA-BBBBBBBBBBBBBBBBBBBB");
   await dave.getByRole("button", { name: "Join", exact: true }).click();
   await expect(dave.getByText("You're offline")).toBeVisible();
+});
+
+test("items and shop sections can be reordered by dragging or with the keyboard", async ({ browser }) => {
+  const erin = await newUser(browser);
+  await signIn(erin, { name: "Erin", email: "erin@example.com" });
+  await erin.getByLabel("Household name").fill("Flat");
+  await erin.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(erin.getByRole("heading", { name: "Flat", level: 1 })).toBeVisible();
+  for (const name of ["apples", "pears", "plums"]) {
+    await addItems(erin, name);
+    await expect(row(toBuy(erin), name)).toBeVisible();
+  }
+  const names = toBuy(erin).locator("li.item .item-name");
+  await expect(names).toHaveText(["plums", "pears", "apples"]);
+
+  await test.step("drag an item to the top", async () => {
+    const handle = erin.getByRole("button", { name: "Move apples" }).boundingBox();
+    const target = row(toBuy(erin), "plums").boundingBox();
+    const [from, to] = await Promise.all([handle, target]);
+    if (!from || !to) throw new Error("Rows are not on screen");
+    await erin.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await erin.mouse.down();
+    await erin.mouse.move(from.x + from.width / 2, to.y + 4, { steps: 10 });
+    await erin.mouse.up();
+    await expect(names).toHaveText(["apples", "plums", "pears"]);
+  });
+
+  await test.step("move an item with the arrow keys", async () => {
+    await erin.getByRole("button", { name: "Move apples" }).focus();
+    await erin.keyboard.press("ArrowDown");
+    await expect(names).toHaveText(["plums", "apples", "pears"]);
+    await expect(erin.getByRole("button", { name: "Move apples" })).toBeFocused();
+  });
+
+  await test.step("the order is saved", async () => {
+    await erin.reload();
+    await expect(names).toHaveText(["plums", "apples", "pears"]);
+  });
+
+  await test.step("moving an item into another section changes its section", async () => {
+    await addItems(erin, "milk");
+    await expect(toBuy(erin).getByRole("heading", { name: "Dairy & eggs" })).toBeVisible();
+    await erin.getByRole("button", { name: "Move milk" }).focus();
+    await erin.keyboard.press("ArrowUp");
+    await expect(toBuy(erin).getByRole("heading")).toHaveCount(0);
+    await expect(names).toHaveText(["plums", "apples", "pears", "milk"]);
+  });
+
+  await test.step("shop sections can be reordered", async () => {
+    await erin.getByRole("button", { name: "Households" }).click();
+    await erin.getByText("Shop route").click();
+    const sections = erin.locator("#section-order li");
+    await expect(sections.nth(2)).toHaveText(/Dairy & eggs/);
+    await erin.getByRole("button", { name: "Move Dairy & eggs" }).focus();
+    await erin.keyboard.press("ArrowUp");
+    await expect(sections.nth(1)).toHaveText(/Dairy & eggs/);
+    await erin.reload();
+    await erin.getByRole("button", { name: "Households" }).click();
+    await erin.getByText("Shop route").click();
+    await expect(sections.nth(1)).toHaveText(/Dairy & eggs/);
+  });
+});
+
+test("the link from the sign-in email can be pasted into the app", async ({ browser }) => {
+  const frank = await newUser(browser);
+  await requestSignInLink(frank, { name: "Frank", email: "frank@example.com" });
+  await frank.getByLabel("Sign-in link from the email").fill("https://example.com/not-a-sign-in-link");
+  await frank.getByRole("button", { name: "Sign in with this link" }).click();
+  await expect(frank.getByText("That isn't a sign-in link")).toBeVisible();
+  await frank.getByLabel("Sign-in link from the email").fill(await emailedLink(frank.request, "frank@example.com"));
+  await frank.getByRole("button", { name: "Sign in with this link" }).click();
+  await expect(frank.getByRole("heading", { name: "Create a household" })).toBeVisible();
+  await expect(frank.getByText("Signed in as")).toContainText("Frank");
+});
+
+test("things bought regularly are suggested when they're due again", async ({ browser }) => {
+  const gina = await newUser(browser);
+  await signIn(gina, { name: "Gina", email: "gina@example.com" });
+  await gina.getByLabel("Household name").fill("Home");
+  await gina.getByRole("button", { name: "Create", exact: true }).click();
+  await expect(gina.getByRole("heading", { name: "Home", level: 1 })).toBeVisible();
+
+  await seedPurchases(gina.request, { name: "milk", quantity: "2 L", daysAgo: [7, 14, 21] });
+  await seedPurchases(gina.request, { name: "yoghurt", daysAgo: [3, 10, 17] });
+  await seedPurchases(gina.request, { name: "cheese", daysAgo: [8, 22] });
+  await gina.reload();
+
+  const staples = gina.locator("#staples-section");
+  await expect(staples.getByRole("button", { name: /milk/ })).toContainText("weekly");
+  await expect(staples.getByRole("button", { name: /yoghurt/ })).toHaveCount(0);
+  await expect(gina.locator("#suggestions-section").getByRole("button", { name: "cheese" })).toBeVisible();
+  await expect(gina.getByRole("button", { name: /^Add all/ })).toBeHidden();
+
+  await staples.getByRole("button", { name: /milk/ }).click();
+  await expect(toBuy(gina).locator("li.item", { hasText: "milk" })).toContainText("2 L");
+  await expect(staples).toBeHidden();
 });

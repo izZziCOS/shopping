@@ -33,7 +33,7 @@ export function itemRecord({ listId, name, quantity, section, addedBy, addedByNa
 }
 
 export function readdedItemChanges({ quantity, addedBy, addedByName, createdAt }) {
-  return { ...NOT_BOUGHT, quantity, addedBy, addedByName, createdAt };
+  return { ...NOT_BOUGHT, quantity, addedBy, addedByName, createdAt, order: null };
 }
 
 export function boughtItemChanges({ boughtAt, boughtBy, boughtByName, purchaseId }) {

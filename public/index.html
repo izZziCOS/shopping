@@ -44,6 +44,11 @@
         <button type="submit">Email me a sign-in link</button>
       </form>
       <p id="email-sent" class="notice" hidden></p>
+      <form id="email-paste-form" class="stack" hidden>
+        <p id="email-paste-hint" class="muted small"></p>
+        <input id="email-link" class="field" type="url" placeholder="Paste the sign-in link" autocomplete="off" required aria-label="Sign-in link from the email">
+        <button type="submit">Sign in with this link</button>
+      </form>
     </div>
   </section>
 
@@ -80,8 +85,8 @@
 
       <details class="stack-tight route">
         <summary class="section-title">Shop route</summary>
-        <p class="muted small">Put the sections in the order you walk through the shop. Items on your lists are grouped in this order.</p>
-        <ol id="section-order" class="rows"></ol>
+        <p class="muted small">Drag the sections (⠿) into the order you walk through the shop. Items on your lists are grouped in this order.</p>
+        <ol id="section-order" class="rows" data-sort-group="sections"></ol>
       </details>
 
       <button id="leave-household" class="danger" type="button">Leave household</button>
@@ -143,6 +148,14 @@
         <button class="primary" type="submit">Add</button>
       </form>
       <datalist id="item-suggestions"></datalist>
+
+      <div id="staples-section" class="suggestions" hidden>
+        <div class="suggestions-header">
+          <span class="section-title">Due again</span>
+          <button id="add-staples" class="ghost small" type="button" hidden>Add all</button>
+        </div>
+        <div id="staples" class="chips"></div>
+      </div>
 
       <div id="suggestions-section" class="suggestions" hidden>
         <span class="section-title">Buy again</span>

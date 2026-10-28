@@ -3,8 +3,15 @@ import { byId, element, onClick, syncChildren } from "../dom.js";
 import { formatDay, formatFull, formatTime } from "../format.js";
 import { closePanel, personName, state } from "../store.js";
 
+function listLabel(purchase) {
+  if (!state.listsLoaded) return null;
+  const list = state.lists.find((entry) => entry.id === purchase.listId);
+  if (!list) return "deleted list";
+  return state.lists.length > 1 ? list.name : null;
+}
+
 function purchaseModel(purchase) {
-  const listName = state.lists.length > 1 ? state.lists.find((list) => list.id === purchase.listId)?.name : null;
+  const listName = listLabel(purchase);
   return {
     name: purchase.name,
     quantity: purchase.quantity,

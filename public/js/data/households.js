@@ -1,9 +1,8 @@
 import { arrayRemove, arrayUnion, collection, deleteField, doc, getDoc, getDocs, serverTimestamp, updateDoc } from "../sdk.js";
 import { errorCode } from "../errors.js";
 import { millis } from "../format.js";
-import { MAX_MEMBERS, moveEntry, nextOwner, parseInvite } from "../logic.js";
+import { MAX_MEMBERS, nextOwner, parseInvite } from "../logic.js";
 import { householdRecord, listRecord, memberInfoRecord } from "../records.js";
-import { orderedSections } from "../sections.js";
 import { SELECTED_HOUSEHOLD_KEY, writeStorage } from "../storage.js";
 import { requireUser, state, userName } from "../store.js";
 import { DEFAULT_LIST_NAME, commitDeletes, firestore, householdRef, newBatch } from "./firestore.js";
@@ -29,16 +28,15 @@ export async function renameHousehold(householdId, name) {
   await updateDoc(householdRef(householdId), { name });
 }
 
-export async function moveSection(household, index, offset) {
-  const order = moveEntry(orderedSections(household.sectionOrder), index, offset);
-  if (order) await updateDoc(householdRef(household.id), { sectionOrder: order });
+export async function saveSectionOrder(householdId, order) {
+  await updateDoc(householdRef(householdId), { sectionOrder: order });
 }
 
 export async function changeMemberName(name) {
   const uid = requireUser().uid;
-  await Promise.all(
-    state.households.map((household) => updateDoc(householdRef(household.id), { [`memberInfo.${uid}.name`]: name })),
-  );
+  const batch = newBatch();
+  state.households.forEach((household) => batch.update(householdRef(household.id), { [`memberInfo.${uid}.name`]: name }));
+  await batch.commit();
 }
 
 async function isMemberOf(ref) {

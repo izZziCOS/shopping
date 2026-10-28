@@ -2,15 +2,16 @@ import { addItems } from "../data/items.js";
 import { MAX_ITEM_NAME_LENGTH, limitMessage, summarizeAdds } from "../logic.js";
 import { showError, toast } from "../toast.js";
 
-export async function submitItems(names, quantity) {
-  const valid = names.filter((name) => name.length <= MAX_ITEM_NAME_LENGTH);
-  const tooLong = names.length - valid.length;
+// Each entry is { name, quantity }.
+export async function submitItems(entries) {
+  const valid = entries.filter((entry) => entry.name.length <= MAX_ITEM_NAME_LENGTH);
+  const tooLong = entries.length - valid.length;
   if (valid.length === 0) {
     toast(`Item names can be at most ${MAX_ITEM_NAME_LENGTH} characters.`);
     return;
   }
   try {
-    const { results, dropped, reason, saved } = await addItems(valid, valid.length === 1 ? quantity : "");
+    const { results, dropped, reason, saved } = await addItems(valid);
     saved.catch((error) => showError(error));
     const messages = [
       summarizeAdds(results),

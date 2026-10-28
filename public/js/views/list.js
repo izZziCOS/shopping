@@ -8,7 +8,7 @@ import { shareInvite } from "./invites.js";
 import { renderItems } from "./item-rows.js";
 import { bindListSettings } from "./list-settings.js";
 import { shareCurrentList } from "./share.js";
-import { renderSuggestions } from "./suggestions.js";
+import { addDueStaples, renderSuggestions } from "./suggestions.js";
 import { bindTabs, renderTabs } from "./tabs.js";
 
 function renderSyncStatus(status) {
@@ -60,12 +60,14 @@ export function bindList() {
     scrollTo(0, 0);
   });
   onClick("clear-bought", clearBought);
+  onClick("add-staples", addDueStaples);
   onSubmit("add-form", async (form) => {
     const names = splitItemNames(inputById("item-name").value);
     if (names.length === 0) return;
     const quantity = inputById("item-quantity").value.trim();
     form.reset();
     inputById("item-name").focus();
-    await submitItems(names, quantity);
+    // One quantity can't belong to several items, so it's only used when adding one.
+    await submitItems(names.map((name) => ({ name, quantity: names.length === 1 ? quantity : "" })));
   });
 }

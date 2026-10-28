@@ -125,6 +125,10 @@ async function seed() {
       ...newPurchase("bob", { itemId: BOUGHT_ITEM, name: "Bread", section: "bakery" }),
       boughtAt: Timestamp.now(),
     });
+    await setDoc(doc(db, householdPath("purchases", "purchase008")), {
+      ...newPurchase("bob", { name: "Cheese" }),
+      boughtAt: Timestamp.fromMillis(Date.now() - 11 * 60 * 1000),
+    });
     await setDoc(doc(db, householdPath("invites", VALID_INVITE)), { ...newInvite("alice"), createdAt: Timestamp.now() });
     await setDoc(doc(db, householdPath("invites", EXPIRED_INVITE)), {
       ...newInvite("alice"),
@@ -226,6 +230,13 @@ describe("households", () => {
     const ref = doc(firestoreAs("bob"), householdPath());
     await assertSucceeds(updateDoc(ref, { name: "Our home" }));
     await assertSucceeds(updateDoc(ref, { sectionOrder: ["dairy", "produce"] }));
+  });
+
+  test("the shop route can only hold known sections, each once", async () => {
+    const ref = doc(firestoreAs("bob"), householdPath());
+    await assertFails(updateDoc(ref, { sectionOrder: ["dairy", "made-up"] }));
+    await assertFails(updateDoc(ref, { sectionOrder: ["dairy", "dairy"] }));
+    await assertFails(updateDoc(ref, { sectionOrder: [42] }));
   });
 
   test("an outsider cannot rename the household", async () => {
@@ -506,6 +517,13 @@ describe("items", () => {
     );
   });
 
+  test("a member can move an item, and putting it back resets its place", async () => {
+    const ref = doc(firestoreAs("bob"), householdPath("items", ITEM));
+    await assertSucceeds(updateDoc(ref, { order: -1234.5, section: "drinks" }));
+    await assertSucceeds(updateDoc(ref, { order: null }));
+    await assertFails(updateDoc(ref, { order: "first" }));
+  });
+
   test("a note cannot be longer than 200 characters", async () => {
     await assertFails(updateDoc(doc(firestoreAs("bob"), householdPath("items", ITEM)), { note: "x".repeat(201) }));
   });
@@ -546,6 +564,10 @@ describe("purchases", () => {
 
   test("the buyer can delete their own purchase", async () => {
     await assertSucceeds(deleteDoc(doc(firestoreAs("bob"), householdPath("purchases", "purchase001"))));
+  });
+
+  test("the buyer cannot delete their purchase after 10 minutes", async () => {
+    await assertFails(deleteDoc(doc(firestoreAs("bob"), householdPath("purchases", "purchase008"))));
   });
 
   test("another member cannot delete someone else's purchase", async () => {

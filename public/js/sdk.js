@@ -4,11 +4,13 @@ export {
   GoogleAuthProvider,
   connectAuthEmulator,
   getAuth,
+  getRedirectResult,
   isSignInWithEmailLink,
   onAuthStateChanged,
   sendSignInLinkToEmail,
   signInWithEmailLink,
   signInWithPopup,
+  signInWithRedirect,
   signOut,
   updateProfile,
 } from "https://www.gstatic.com/firebasejs/13.1.0/firebase-auth.js";

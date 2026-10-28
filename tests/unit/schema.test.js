@@ -12,6 +12,7 @@ import {
   purchaseRecord,
   readdedItemChanges,
 } from "../../public/js/records.js";
+import { SECTIONS } from "../../public/js/sections.js";
 
 const rules = readFileSync(new URL("../../firestore.rules", import.meta.url), "utf8");
 const types = readFileSync(new URL("../../public/js/types.d.ts", import.meta.url), "utf8");
@@ -39,20 +40,30 @@ function rulesAllowedKeys(functionName) {
   return quoted(match[1]).sort();
 }
 
-function rulesItemFields() {
-  const match = functionBody("itemFields").match(/\[([\s\S]*?)\]/);
-  assert.ok(match, "itemFields() returns a list");
-  return quoted(match[1]).sort();
+function rulesList(functionName) {
+  const match = functionBody(functionName).match(/\[([\s\S]*?)\]/);
+  assert.ok(match, `${functionName}() returns a list`);
+  return quoted(match[1]);
 }
 
-function requiredInterfaceFields(name) {
+function rulesItemFields() {
+  return rulesList("itemFields").sort();
+}
+
+function interfaceFields(name) {
   const match = types.match(new RegExp(`export interface ${name} \\{([\\s\\S]*?)\\n\\}`));
   assert.ok(match, `types.d.ts declares ${name}`);
   return [...match[1].matchAll(/^\s+(\w+)(\?)?:/gm)]
-    .filter((field) => !field[2])
-    .map((field) => field[1])
-    .filter((field) => field !== "id" && field !== "pending")
-    .sort();
+    .map((field) => ({ name: field[1], optional: Boolean(field[2]) }))
+    .filter((field) => field.name !== "id" && field.name !== "pending");
+}
+
+function requiredInterfaceFields(name) {
+  return interfaceFields(name).filter((field) => !field.optional).map((field) => field.name).sort();
+}
+
+function optionalInterfaceFields(name) {
+  return interfaceFields(name).filter((field) => field.optional).map((field) => field.name).sort();
 }
 
 function keys(record) {
@@ -76,8 +87,12 @@ describe("written records match the security rules and the types", () => {
     assert.deepEqual(keys(record), requiredInterfaceFields("Item"));
   });
 
+  test("optional item fields are optional in both the rules and the types", () => {
+    assert.deepEqual(rulesList("optionalItemFields").sort(), optionalInterfaceFields("Item"));
+  });
+
   test("item updates only touch item fields", () => {
-    const fields = new Set(rulesItemFields());
+    const fields = new Set([...rulesItemFields(), ...rulesList("optionalItemFields")]);
     const updates = [
       NOT_BOUGHT,
       readdedItemChanges({ quantity: "", addedBy: "uid", addedByName: "Alice", createdAt: now }),
@@ -113,6 +128,10 @@ describe("written records match the security rules and the types", () => {
     assert.deepEqual(keys(record), requiredInterfaceFields("Household"));
     assert.deepEqual(record.members, ["uid"]);
     assert.deepEqual(Object.keys(record.memberInfo), ["uid"]);
+  });
+
+  test("the rules know every shop section", () => {
+    assert.deepEqual(rulesList("sectionKeys"), SECTIONS.map((section) => section.key));
   });
 
   test("member info", () => {

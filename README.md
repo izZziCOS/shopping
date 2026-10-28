@@ -2,20 +2,23 @@
 
 A shared household shopping list that updates in real time, built with Firebase Auth and Cloud Firestore. The app itself is plain HTML, CSS and JS in [public/](public/) with no build step. npm is only used to run the security-rule tests.
 
-- Sign in with Google, or with a link sent to your email. The email option works inside in-app browsers (Instagram, Messenger…), where Google blocks sign-in
+- Sign in with Google, or with a link sent to your email. The email option works inside in-app browsers (Instagram, Messenger…), where Google blocks sign-in. The link can also be copied from the email and pasted into the app, which is how to sign in to the app installed on an iPhone home screen (links in the email open Safari instead)
 - Create a household and invite people with links that expire after 7 days. Links can be cancelled at any time
 - The household owner can remove members. Removing someone also cancels all invite links, so an old link can't be used to rejoin
 - Anyone can change their own name and rename the household
 - **Several lists per household** (e.g. Groceries, Pharmacy, Hardware), shown as tabs
-- **Items are grouped by shop section** (fruit & veg, dairy, frozen…) in the order you walk through the shop. You can change that order under Households → Shop route. The section is guessed from the item's name, and once you correct it, items with that name keep the corrected section
+- **Items are grouped by shop section** (fruit & veg, dairy, frozen…) in the order you walk through the shop. Drag the sections (⠿) under Households → Shop route to change that order. The section is guessed from the item's name, and once you correct it, items with that name keep the corrected section
 - Everyone sees items being added, checked and removed as it happens
 - Checking an item saves **when** it was bought and **who** bought it. The time comes from the server and the security rules enforce it
 - Every purchase is kept for a year, which powers "last bought 6 days ago", the purchase history page, "Buy again" suggestions and autocomplete
+- **Staples:** things bought on at least three different days, a similar time apart (e.g. milk every week), show under **Due again** once that time is nearly up, with an **Add all** button. Each comes back with its usual quantity. A staple that's three intervals overdue stops being suggested
 - **Add several items at once** by separating them with commas, e.g. `milk, eggs, bread`
 - Adding an item that's already in "Bought" moves it back instead of creating a duplicate
 - Removing or clearing items can be undone for 5 seconds
+- **Drag items (⠿) to put them in any order.** Dropping an item into another section's group moves it to that section. With a keyboard, focus the handle and use the arrow keys. Items nobody has moved stay newest first
 - Items can be edited (✎): name, quantity, a **note** (e.g. "the green brand, only if on sale"), section and which list they're on
-- If you tick something by mistake, unticking it within 10 minutes removes it from history again. Only the person who ticked it can do this. If someone else unticks it, or it's later than that, the purchase stays in history and the item goes back on the list
+- If you tick something by mistake, unticking it within 10 minutes removes it from history again. Only the person who ticked it can do this, and the security rules enforce the time limit. If someone else unticks it, or it's later than that, the purchase stays in history and the item goes back on the list
+- Deleting a list keeps its purchase history. Those purchases are marked "deleted list" on the history page
 - Works offline. A banner shows when you're offline or when changes are taking a while to sync, and items that haven't synced yet are marked
 - **Opens without signal and can be installed.** A service worker keeps the app and the Firebase SDK on the device, so it starts offline. It can be added to the home screen: Android and desktop Chrome show an **Install** button under Households, and on iPhone the same place explains Share → Add to Home Screen
 - **Share a list as text**, grouped by shop section with quantities and notes. It uses the phone's share sheet, or copies the text to the clipboard
@@ -80,6 +83,7 @@ The app has no build step: the browser loads the ES modules in [public/js/](publ
 | [records.js](public/js/records.js) | Builds every document the app writes. A unit test checks these fields against `firestore.rules` and `types.d.ts` |
 | [auth.js](public/js/auth.js) | Google and email-link sign-in |
 | [logic.js](public/js/logic.js), [format.js](public/js/format.js), [sections.js](public/js/sections.js), [errors.js](public/js/errors.js) | Pure functions with no page or Firebase code, all unit-tested |
+| [sortable.js](public/js/sortable.js) | The drag handle (⠿) for reordering rows with a mouse, touch, pen or the arrow keys, including between section groups |
 | [dom.js](public/js/dom.js) | Page helpers: `syncChildren` only rebuilds rows whose content changed, and `onClick`/`onSubmit` disable their buttons until async work finishes, so double taps don't send two requests |
 | [dialogs.js](public/js/dialogs.js), [toast.js](public/js/toast.js) | The app's own pop-up windows and messages |
 | [views/](public/js/views/) | One module per screen or part of a screen: sign-in, households, install, history, editor, invites, share, plus the list screen split into `list.js`, `tabs.js`, `item-rows.js`, `suggestions.js`, `list-settings.js` and `add-items.js` |
@@ -105,10 +109,11 @@ npm install
 npm run check        # lint + type check + unit tests (no Java needed)
 npm run test:rules   # security rules in the Firestore emulator
 npm run test:e2e     # the real app in a browser against the Auth and Firestore emulators
-npm test             # unit + rules + browser tests
+npm run test:emulators  # rules + browser tests, sharing one start of the emulators
+npm test             # unit tests, then test:emulators
 ```
 
-`test:rules` and `test:e2e` start the Firebase emulators, which need **Java 21 or newer** (for example `brew install openjdk@21`). Locally the browser tests use your installed Google Chrome. CI installs Playwright's Chromium instead.
+`test:rules`, `test:e2e` and `test:emulators` start the Firebase emulators, which need **Java 21 or newer** (for example `brew install openjdk@21`). Locally the browser tests use your installed Google Chrome. CI installs Playwright's Chromium instead.
 
 - **Lint:** ESLint ([eslint.config.js](eslint.config.js)), including the rule above that keeps state changes in `store.js`.
 - **Type check:** TypeScript checks the plain JS against the Firebase SDK's types and [types.d.ts](public/js/types.d.ts) ([jsconfig.json](jsconfig.json)). It runs in strict mode, including null checks, with one exception: `noImplicitAny` is off, because satisfying it would mean adding type comments to the code. In practice it catches misspelt fields (`item.quanity`), code that forgets a user might be signed out or a household might not be selected, unhandled `catch` values, and wrong Firebase or DOM calls.
@@ -116,6 +121,8 @@ npm test             # unit + rules + browser tests
   - adding several items, duplicate handling and the add limits
   - the undo window and invite parsing
   - history grouping, section grouping and the shop-section guesser
+  - item order after dragging, and spotting staples that are due again
+  - that redraws wait while a row is being dragged
   - sharing as text, date formatting, sync status and error messages
   - `syncChildren` and the busy buttons, using [happy-dom](https://github.com/capricorn86/happy-dom)
   - that `state` refuses outside changes
@@ -132,6 +139,9 @@ npm test             # unit + rules + browser tests
   - keyboard navigation of the list tabs
   - sharing the list as text
   - the 50-item paste cap
+  - signing in by pasting the link from the email
+  - "Due again" suggestions, from purchase history written straight into the emulator
+  - reordering items and shop sections by dragging and with the keyboard, including moving an item to another section
   - the owner removing a member
 
   It also checks that a bad invite link and joining while offline both give the right message. [tests/e2e/serve.js](tests/e2e/serve.js) serves `public/` with a Firebase config that points at the emulators.
@@ -150,6 +160,12 @@ App Check makes Firebase reject requests that don't come from your real web app,
 4. Watch the metrics under **App Check → APIs** for a few days. Once almost all requests are verified, press **Enforce** for **Cloud Firestore** and **Authentication**.
 
 Leave `appCheckSiteKey` empty to run without App Check.
+
+## Google sign-in in the installed app
+
+When the app is opened from the iPhone home screen, Google's sign-in pop-up often never comes back. In that case the app uses a full-page redirect instead, but only when `authDomain` in [public/firebase-config.js](public/firebase-config.js) is the address the app is served from. Otherwise Safari blocks the storage the redirect needs, so the app keeps using the pop-up. If that doesn't finish, the app says so and suggests signing in with email, pasting the link from the email into the app.
+
+To turn the redirect on, host the app on Firebase Hosting and set `authDomain` to that address, e.g. `<project-id>.web.app`. Then, in Google Cloud Console → APIs & Services → Credentials, add `https://<project-id>.web.app/__/auth/handler` to the web OAuth client's authorized redirect URIs.
 
 ## Deploy
 
@@ -203,7 +219,7 @@ Firebase only allows sign-in from domains you've authorized. If you host the app
 ```
 households/{householdId}
   name, ownerId, createdAt
-  sectionOrder: [sectionKey, ...]           ← optional, the shop route
+  sectionOrder: [sectionKey, ...]           ← optional, the shop route (known section keys only)
   members: [uid, ...]                       ← used for queries and security rules
   memberInfo: { uid: { name, joinedAt, invite } }
 
@@ -216,6 +232,7 @@ households/{householdId}/items/{itemId}
   boughtAt, boughtBy, boughtByName          ← null while not bought
   purchaseId                                ← the purchase record for the current "bought"
   addedBy, addedByName, createdAt
+  order                                     ← optional; set by dragging, null/missing = newest first
 
 households/{householdId}/purchases/{purchaseId}
   itemId, listId, name, quantity, section, boughtAt, boughtBy, boughtByName
@@ -240,4 +257,4 @@ Section keys are defined in [public/js/sections.js](public/js/sections.js). An i
 - **Bought time and buyer:** `boughtAt` must be the server's time and `boughtBy` must be the person making the change. A purchase record has to be created in the same write.
 - **Fixed fields:** who added an item and when can't be changed. The exception is putting a bought item back on the list, which records the new person and time.
 - **Lists:** an item can only be added to, or moved to, a list that exists.
-- **History:** purchase records can't be edited. Only the person who made a purchase can delete it, which is how the 10-minute undo works. The exception is the last member deleting the whole household.
+- **History:** purchase records can't be edited. Only the person who made a purchase can delete it, and only within 10 minutes of buying it. That's the undo. The exception is the last member deleting the whole household.

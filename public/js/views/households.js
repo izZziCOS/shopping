@@ -4,18 +4,19 @@ import {
   createHousehold,
   deleteHousehold,
   leaveHousehold,
-  moveSection,
   removeMember,
   renameHousehold,
+  saveSectionOrder,
 } from "../data/households.js";
 import { revokeInvite } from "../data/invites.js";
 import { flushPendingRemovals } from "../data/items.js";
 import { chooseHousehold } from "../data/watch.js";
 import { askForText, askToConfirm } from "../dialogs.js";
-import { byId, element, iconButton, inputById, onClick, onSubmit, syncChildren, textButton } from "../dom.js";
+import { byId, element, inputById, onClick, onSubmit, syncChildren, textButton } from "../dom.js";
 import { formatExpiry } from "../format.js";
 import { activeInvites, memberEntries, nextOwner } from "../logic.js";
 import { orderedSections, sectionLabel } from "../sections.js";
+import { dragHandle } from "../sortable.js";
 import { changed, closePanel, currentHousehold, personName, requireUser, state, userName } from "../store.js";
 import { showError, toast } from "../toast.js";
 import { runJoin, shareInviteLink, shareNewInvite } from "./invites.js";
@@ -61,7 +62,7 @@ function renderHouseholdDetails(household) {
   syncChildren(byId("invite-list"), invites.map(inviteEntry));
   byId("invite-empty").hidden = invites.length > 0;
   const order = orderedSections(household.sectionOrder);
-  syncChildren(byId("section-order"), order.map((key, index) => sectionEntry(key, index, order.length)));
+  syncChildren(byId("section-order"), order.map(sectionEntry));
 }
 
 function memberEntry(household, member, viewerIsOwner) {
@@ -108,25 +109,22 @@ function inviteEntry(invite) {
   };
 }
 
-function sectionEntry(key, index, count) {
+function sectionEntry(key) {
   const label = sectionLabel(key);
   return {
     key,
-    signature: JSON.stringify([label, index, count]),
+    signature: label,
     build() {
       const row = element("li", "row");
-      const move = (offset) => {
-        const household = currentHousehold();
-        if (household) moveSection(household, index, offset).catch((error) => showError(error));
-      };
-      const up = iconButton("↑", `Move ${label} earlier`, () => move(-1));
-      const down = iconButton("↓", `Move ${label} later`, () => move(1));
-      up.disabled = index === 0;
-      down.disabled = index === count - 1;
-      row.append(element("span", "row-label", label), up, down);
+      row.append(element("span", "row-label", label), dragHandle(label, dropSection));
       return row;
     },
   };
+}
+
+function dropSection({ keys }) {
+  const household = currentHousehold();
+  if (household) saveSectionOrder(household.id, keys).catch((error) => showError(error));
 }
 
 async function confirmRemoveMember(memberUid) {

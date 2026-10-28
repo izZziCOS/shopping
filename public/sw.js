@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "shopping-list-v1";
+const CACHE_NAME = "shopping-list-v2";
 const SDK_VERSION = "13.1.0";
 const SDK_BASE = `https://www.gstatic.com/firebasejs/${SDK_VERSION}/`;
 const NETWORK_TIMEOUT_MS = 4000;
@@ -35,6 +35,7 @@ const APP_FILES = [
   "js/records.js",
   "js/sdk.js",
   "js/sections.js",
+  "js/sortable.js",
   "js/storage.js",
   "js/store.js",
   "js/toast.js",
@@ -60,7 +61,8 @@ const SDK_FILES = ["firebase-app.js", "firebase-app-check.js", "firebase-auth.js
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then(async (cache) => {
-      await cache.addAll(APP_FILES);
+      // "reload" skips the browser's HTTP cache, which could otherwise hand back files from the previous deploy.
+      await cache.addAll(APP_FILES.map((url) => new Request(url, { cache: "reload" })));
       await Promise.allSettled(SDK_FILES.map((url) => cache.add(new Request(url, { mode: "cors" }))));
       await self.skipWaiting();
     }),
@@ -120,6 +122,8 @@ self.addEventListener("fetch", (event) => {
   const { request } = event;
   if (request.method !== "GET") return;
   const url = new URL(request.url);
+  // Firebase's reserved pages (such as the sign-in handler) must never be answered with, or saved as, the app.
+  if (url.origin === self.location.origin && url.pathname.includes("/__/")) return;
   if (request.mode === "navigate") {
     event.respondWith(networkFirst(request, "index.html"));
   } else if (url.origin === self.location.origin) {

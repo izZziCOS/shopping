@@ -1,5 +1,5 @@
 import { DEFAULT_SECTION, guessSection, isKnownSection, orderedSections, sectionLabel } from "./sections.js";
-import { millis } from "./format.js";
+import { DAY_MS, millis } from "./format.js";
 
 export const NOT_BOUGHT = { bought: false, boughtAt: null, boughtBy: null, boughtByName: null, purchaseId: null };
 export const PURCHASE_UNDO_WINDOW_MS = 10 * 60 * 1000;
@@ -12,6 +12,12 @@ export const MAX_ITEMS_PER_LIST = 300;
 export const MAX_LISTS_PER_HOUSEHOLD = 20;
 export const MAX_ACTIVE_INVITES = 10;
 export const MAX_MEMBERS = 20;
+export const STAPLE_MIN_PURCHASES = 3;
+export const STAPLE_MAX_INTERVAL_DAYS = 60;
+// A staple is due a little before its usual interval is up, and stops being suggested once it's three intervals
+// overdue, as that usually means the household has stopped buying it.
+const STAPLE_DUE_SHARE = 0.85;
+const STAPLE_GIVE_UP_SHARE = 3;
 
 const ID_PATTERN = /^[A-Za-z0-9]{8,40}$/;
 const CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -92,6 +98,35 @@ export function frequentItems(purchases) {
     .sort((a, b) => b.count - a.count);
 }
 
+function median(values) {
+  const sorted = [...values].sort((a, b) => a - b);
+  const middle = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
+}
+
+// Things bought regularly (on at least three different days, usually a similar time apart) whose usual interval is
+// nearly up. Several purchases on the same day count once. Most overdue first.
+export function dueStaples(purchases, now) {
+  return [...groupByName(purchases)]
+    .flatMap(([key, group]) => {
+      const latest = group.reduce((best, purchase) => (millis(purchase.boughtAt) > millis(best.boughtAt) ? purchase : best));
+      const days = [...new Set(group.map((purchase) => Math.floor(millis(purchase.boughtAt) / DAY_MS)))].sort((a, b) => a - b);
+      if (days.length < STAPLE_MIN_PURCHASES) return [];
+      const intervalDays = Math.round(median(days.slice(1).map((day, index) => day - days[index])));
+      if (intervalDays < 1 || intervalDays > STAPLE_MAX_INTERVAL_DAYS) return [];
+      const overdue = (now - millis(latest.boughtAt)) / (intervalDays * DAY_MS);
+      if (overdue < STAPLE_DUE_SHARE || overdue > STAPLE_GIVE_UP_SHARE) return [];
+      return [{ key, name: latest.name, quantity: latest.quantity, intervalDays, lastBoughtAt: latest.boughtAt, overdue }];
+    })
+    .sort((a, b) => b.overdue - a.overdue);
+}
+
+export function describeInterval(days) {
+  if (days === 1) return "daily";
+  if (days % 7 === 0) return days === 7 ? "weekly" : `every ${days / 7} weeks`;
+  return `every ${days} days`;
+}
+
 export function sectionOf(item) {
   return isKnownSection(item.section) ? item.section : DEFAULT_SECTION;
 }
@@ -104,12 +139,21 @@ export function knownSection(name, items, purchases) {
   return match ? sectionOf(match) : guessSection(name);
 }
 
-export function moveEntry(entries, index, offset) {
-  const target = index + offset;
-  if (target < 0 || target >= entries.length) return null;
-  const moved = [...entries];
-  [moved[index], moved[target]] = [moved[target], moved[index]];
-  return moved;
+// Items the user hasn't dragged have no order and sort newest first. Dragging gives an item an order between its
+// new neighbours' sort keys, so moving one item is a single write and items added later still appear on top.
+export function itemSortKey(item) {
+  return typeof item.order === "number" ? item.order : -millis(item.createdAt);
+}
+
+export function compareItems(a, b) {
+  return itemSortKey(a) - itemSortKey(b) || millis(b.createdAt) - millis(a.createdAt);
+}
+
+export function orderBetween(before, after) {
+  if (before === null && after === null) return null;
+  if (before === null) return itemSortKey(after) - 1;
+  if (after === null) return itemSortKey(before) + 1;
+  return (itemSortKey(before) + itemSortKey(after)) / 2;
 }
 
 export function memberEntries(household) {

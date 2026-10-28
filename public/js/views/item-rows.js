@@ -1,9 +1,10 @@
-import { setBought } from "../data/items.js";
+import { moveItem, setBought } from "../data/items.js";
 import { byId, element, iconButton, syncChildren } from "../dom.js";
 import { formatDaysAgo, formatFull, formatWhen, millis } from "../format.js";
-import { groupByName, groupBySection, normalize } from "../logic.js";
+import { compareItems, groupByName, groupBySection, normalize } from "../logic.js";
 import { sectionLabel } from "../sections.js";
-import { listItems, personName, state } from "../store.js";
+import { dragHandle } from "../sortable.js";
+import { findItem, listItems, personName, state } from "../store.js";
 import { showError } from "../toast.js";
 import { openEditor } from "./editor.js";
 
@@ -31,6 +32,7 @@ function itemEntry(item, purchases, showPending) {
     meta: describeItem(item, purchases),
     title: shownDate ? formatFull(shownDate) : "",
     pending: showPending && item.pending,
+    sortable: !item.bought,
   };
   return { key: model.id, signature: JSON.stringify(model), build: () => buildItemRow(model) };
 }
@@ -60,7 +62,20 @@ function buildItemRow(model) {
   label.append(checkbox, text);
 
   row.append(label, iconButton("✎", `Edit ${model.name}`, () => openEditor(model.id)));
+  if (model.sortable) row.append(dragHandle(model.name, dropItem));
   return row;
+}
+
+// Dropping an item into another section's group also moves it to that section.
+function dropItem({ key, container, keys }) {
+  const section = container.dataset.section;
+  if (!section) return;
+  const index = keys.indexOf(key);
+  const neighbour = (offset) => {
+    const id = keys[index + offset];
+    return id ? findItem(id) : null;
+  };
+  moveItem(key, section, neighbour(-1), neighbour(1)).catch((error) => showError(error));
 }
 
 function groupEntry(key, showHeadings) {
@@ -70,7 +85,10 @@ function groupEntry(key, showHeadings) {
     build() {
       const section = element("section", "group");
       if (showHeadings) section.append(element("h3", "group-title", sectionLabel(key)));
-      section.append(element("ul", "items"));
+      const list = element("ul", "items");
+      list.dataset.sortGroup = "items";
+      list.dataset.section = key;
+      section.append(list);
       return section;
     },
   };
@@ -82,7 +100,7 @@ export function renderItems(household, showPending) {
   const entry = (item) => itemEntry(item, purchaseGroups.get(normalize(item.name)) ?? [], showPending);
   const toBuy = items
     .filter((item) => !item.bought)
-    .sort((a, b) => millis(b.createdAt) - millis(a.createdAt));
+    .sort(compareItems);
   const bought = items
     .filter((item) => item.bought)
     .sort((a, b) => millis(b.boughtAt) - millis(a.boughtAt));

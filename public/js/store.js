@@ -8,6 +8,8 @@ export const state = readOnly(internal);
 
 const listeners = new Set();
 let renderScheduled = false;
+let renderHolds = 0;
+let renderWanted = false;
 let slowSyncTimer;
 
 export function subscribe(listener) {
@@ -19,8 +21,28 @@ export function changed() {
   renderScheduled = true;
   requestAnimationFrame(() => {
     renderScheduled = false;
+    if (renderHolds > 0) {
+      renderWanted = true;
+      return;
+    }
     listeners.forEach((listener) => listener());
   });
+}
+
+// Keeps the page as it is (for example while a row is being dragged) even if state changes. State still updates,
+// and one render catches up once every hold is released.
+export function holdRenders() {
+  renderHolds += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    renderHolds -= 1;
+    if (renderHolds === 0 && renderWanted) {
+      renderWanted = false;
+      changed();
+    }
+  };
 }
 
 export function setUser(user) {

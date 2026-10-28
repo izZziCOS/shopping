@@ -38,11 +38,9 @@ jobs:
 
       - run: npm run test:unit
 
-      - run: npm run test:rules
-
       - run: npx playwright install --with-deps chromium
 
-      - run: npm run test:e2e
+      - run: npm run test:emulators
 
       - if: failure()
         uses: actions/upload-artifact@v4

@@ -1,4 +1,4 @@
-import { sendEmailLink, signInWithGoogle } from "../auth.js";
+import { hasSentEmailLink, isInstalledApp, sendEmailLink, signInWithGoogle, signInWithPastedLink } from "../auth.js";
 import { showCopyableText } from "../dialogs.js";
 import { byId, inputById, onClick, onSubmit } from "../dom.js";
 import { isCancelledSignIn } from "../errors.js";
@@ -12,12 +12,21 @@ export function renderSignIn() {
   byId("invite-notice").hidden = !state.pendingInvite;
   byId("in-app-notice").hidden = !isInAppBrowser;
   byId("google-signin").hidden = isInAppBrowser;
+  byId("email-paste-form").hidden = !hasSentEmailLink();
+  byId("email-paste-hint").textContent = isInstalledApp()
+    ? "Links in the email open in your browser, not in this app. In the email, press and hold the link, choose Copy, and paste it here."
+    : "Or copy the link from the email and paste it here.";
 }
 
 export function bindSignIn() {
   onClick("signin-button", () => {
     signInWithGoogle().catch((error) => {
-      if (!isCancelledSignIn(error)) showError(error, "Google sign-in failed. Try signing in with your email instead.");
+      // In an app opened from the home screen, a sign-in window that never comes back looks like a cancelled one.
+      if (isInstalledApp()) {
+        showError(error, "Google sign-in didn't finish. In the app on your home screen, sign in with your email instead.");
+      } else if (!isCancelledSignIn(error)) {
+        showError(error, "Google sign-in failed. Try signing in with your email instead.");
+      }
     });
   });
 
@@ -43,10 +52,20 @@ export function bindSignIn() {
       await sendEmailLink(name, email);
       byId("email-sent").textContent = `We sent a sign-in link to ${email}. Open it to finish signing in.`;
       byId("email-sent").hidden = false;
+      renderSignIn();
     } catch (error) {
       showError(error, "Couldn't send the email. Check the address and try again.");
     } finally {
       if (button) button.disabled = false;
+    }
+  });
+
+  onSubmit("email-paste-form", async (form) => {
+    try {
+      await signInWithPastedLink(inputById("email-link").value);
+      form.reset();
+    } catch (error) {
+      showError(error, "Couldn't sign in with that link. Request a new one and try again.");
     }
   });
 }

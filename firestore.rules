@@ -47,6 +47,18 @@ service cloud.firestore {
       return value is string && value.matches('^[a-z]{1,20}$');
     }
 
+    // The same keys as SECTIONS in public/js/sections.js. A unit test keeps them in step.
+    function sectionKeys() {
+      return ['produce', 'bakery', 'dairy', 'meat', 'frozen', 'pantry', 'snacks', 'drinks', 'household', 'personal', 'other'];
+    }
+
+    function isValidSectionOrder(value) {
+      return value is list
+        && value.size() <= 20
+        && value.toSet().size() == value.size()
+        && value.toSet().hasOnly(sectionKeys());
+    }
+
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -150,7 +162,7 @@ service cloud.firestore {
       return request.auth.uid in resource.data.members
         && changedKeys().hasOnly(['name', 'sectionOrder'])
         && isValidText(data.name, 60)
-        && (!('sectionOrder' in data) || (data.sectionOrder is list && data.sectionOrder.size() <= 20));
+        && (!('sectionOrder' in data) || isValidSectionOrder(data.sectionOrder));
     }
 
     function isValidNewList(data) {
@@ -168,15 +180,21 @@ service cloud.firestore {
       ];
     }
 
+    // Optional, so items saved before it existed stay valid. null means "sort by when it was added".
+    function optionalItemFields() {
+      return ['order'];
+    }
+
     function isValidItemShape(data) {
-      return data.keys().hasOnly(itemFields())
+      return data.keys().hasOnly(itemFields().concat(optionalItemFields()))
         && data.keys().hasAll(itemFields())
         && isValidText(data.name, 100)
         && isValidQuantity(data.quantity)
         && isValidNote(data.note)
         && isValidSection(data.section)
         && isValidId(data.listId)
-        && data.bought is bool;
+        && data.bought is bool
+        && (!('order' in data) || data.order == null || data.order is number);
     }
 
     function isNotBought(data) {
@@ -274,8 +292,10 @@ service cloud.firestore {
 
       match /purchases/{purchaseId} {
         allow read: if isMember(householdId);
-        allow delete: if isMember(householdId)
-          && (resource.data.boughtBy == request.auth.uid || isOnlyMember(householdId));
+        allow delete: if isMember(householdId) && (
+          (resource.data.boughtBy == request.auth.uid && resource.data.boughtAt > request.time - duration.value(10, 'm'))
+          || isOnlyMember(householdId)
+        );
         allow create: if isMember(householdId) && isValidNewPurchase(request.resource.data);
       }
 

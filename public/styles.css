@@ -427,6 +427,24 @@ input:focus-visible {
   white-space: nowrap;
 }
 
+.chip.staple {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.chip-meta {
+  margin-left: 6px;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.suggestions-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
 .stack-tight {
   display: flex;
   flex-direction: column;
@@ -674,4 +692,27 @@ button.danger-solid {
   .topbar-actions button {
     padding: 8px 6px;
   }
+}
+
+.drag-handle {
+  align-self: stretch;
+  width: 40px;
+  font-size: 1.1rem;
+  cursor: grab;
+  touch-action: none;
+}
+
+.sorting,
+.sorting * {
+  cursor: grabbing !important;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dragging {
+  position: relative;
+  z-index: 1;
+  background: var(--surface);
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
 }

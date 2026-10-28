@@ -41,6 +41,7 @@ export interface Item {
   addedBy: string;
   addedByName: string;
   createdAt: Timestamp;
+  order?: number | null;
   pending: boolean;
 }
 

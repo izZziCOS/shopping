@@ -10,7 +10,7 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
 } from "./sdk.js";
-import { clearUrl, completeEmailSignIn, readInviteFromUrl, useAuth, watchUser } from "./auth.js";
+import { clearUrl, completeEmailSignIn, completeRedirectSignIn, readInviteFromUrl, useAuth, watchUser } from "./auth.js";
 import { onDataError, useFirestore } from "./data/firestore.js";
 import { flushPendingRemovals } from "./data/items.js";
 import { stopWatching, watchHouseholds } from "./data/watch.js";
@@ -118,6 +118,7 @@ async function start() {
   useFirestore(db);
   onDataError((error) => showError(error));
   await completeEmailSignIn().catch((error) => showError(error));
+  completeRedirectSignIn().catch((error) => showError(error));
   watchUser(handleUserChanged);
 }
 
