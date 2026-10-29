@@ -20,6 +20,7 @@ import {
   listAsText,
   itemSortKey,
   memberEntries,
+  memoizeLast,
   nextOwner,
   normalize,
   orderBetween,
@@ -162,10 +163,11 @@ describe("purchase history helpers", () => {
     { name: "MILK", quantity: "" },
   ];
 
-  test("groupByName groups different spellings together", () => {
+  test("groupByName groups different spellings together, keeping their order", () => {
     const groups = groupByName(purchases);
     assert.equal(groups.get("milk").length, 3);
     assert.equal(groups.get("eggs").length, 2);
+    assert.deepEqual(groups.get("milk").map((purchase) => purchase.name), ["Milk", "milk", "MILK"]);
   });
 
   test("frequentItems sorts by count and uses the latest spelling", () => {
@@ -426,5 +428,22 @@ describe("listAsText", () => {
 
   test("says when there is nothing to buy", () => {
     assert.equal(listAsText({ listName: "Groceries", householdName: "Home", items: [], savedOrder: [] }), "Groceries (Home)\n\nNothing left to buy.");
+  });
+});
+
+describe("memoizeLast", () => {
+  test("works the result out again only when an argument changes", () => {
+    let calls = 0;
+    const double = memoizeLast((values, factor) => {
+      calls += 1;
+      return values.map((value) => value * factor);
+    });
+    const values = [1, 2];
+    const first = double(values, 2);
+    assert.equal(double(values, 2), first);
+    assert.equal(calls, 1);
+    assert.deepEqual(double(values, 3), [3, 6]);
+    assert.deepEqual(double([1, 2], 3), [3, 6]);
+    assert.equal(calls, 3);
   });
 });

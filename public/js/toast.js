@@ -1,39 +1,45 @@
-import { byId, buttonById } from "./dom.js";
+import { byId, element, textButton } from "./dom.js";
 import { GENERIC_ERROR, errorMessage } from "./errors.js";
 import { UNDO_DELAY_MS } from "./logic.js";
 
 const TOAST_DELAY_MS = 3000;
 
-let toastTimer;
-const noAction = () => {};
+// A plain message replaces the one before it. A toast with an action (such as Undo) gets its own place in the stack
+// and stays for its whole delay, so a message shown in the meantime can't take the action away.
+let messageToast = null;
 
-let toastAction = noAction;
-
-export function toast(message, { actionLabel = "", onAction = noAction } = {}) {
-  byId("toast-message").textContent = message;
-  const action = buttonById("toast-action");
-  action.hidden = !actionLabel;
-  action.textContent = actionLabel;
-  toastAction = onAction;
-  byId("toast").hidden = false;
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(hideToast, actionLabel ? UNDO_DELAY_MS : TOAST_DELAY_MS);
+function removeToast(node) {
+  node.remove();
+  if (node === messageToast) messageToast = null;
 }
 
-export function hideToast() {
-  byId("toast").hidden = true;
-  toastAction = noAction;
+function showToast(node, delay) {
+  byId("toasts").append(node);
+  setTimeout(() => removeToast(node), delay);
+}
+
+export function toast(message, { actionLabel = "", onAction = () => {} } = {}) {
+  const node = element("div", "toast");
+  node.append(element("span", "toast-message", message));
+  if (actionLabel) {
+    node.append(textButton(actionLabel, "toast-action", () => {
+      removeToast(node);
+      onAction();
+    }));
+    showToast(node, UNDO_DELAY_MS);
+    return;
+  }
+  if (messageToast) removeToast(messageToast);
+  messageToast = node;
+  showToast(node, TOAST_DELAY_MS);
+}
+
+export function hideToasts() {
+  byId("toasts").replaceChildren();
+  messageToast = null;
 }
 
 export function showError(error, fallback = GENERIC_ERROR) {
   console.error(error);
   toast(errorMessage(error, fallback));
-}
-
-export function bindToast() {
-  buttonById("toast-action").addEventListener("click", () => {
-    const action = toastAction;
-    hideToast();
-    action();
-  });
 }

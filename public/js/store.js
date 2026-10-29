@@ -1,5 +1,6 @@
+import { HOUR_MS } from "./format.js";
 import { initialState } from "./initial-state.js";
-import { SLOW_SYNC_MS, pendingTotal } from "./logic.js";
+import { SLOW_SYNC_MS, dueStaples, frequentItems, groupByName, memoizeLast, pendingTotal } from "./logic.js";
 import { readOnly } from "./readonly.js";
 
 const internal = initialState();
@@ -65,6 +66,7 @@ export function resetSession() {
     households: [],
     householdsLoaded: false,
     hiddenItemIds: new Set(),
+    hiddenListIds: new Set(),
     panel: null,
     editingItemId: null,
   });
@@ -141,6 +143,16 @@ export function showItems(itemIds) {
   changed();
 }
 
+export function hideList(listId) {
+  internal.hiddenListIds = new Set([...internal.hiddenListIds, listId]);
+  changed();
+}
+
+export function showList(listId) {
+  internal.hiddenListIds = new Set([...internal.hiddenListIds].filter((id) => id !== listId));
+  changed();
+}
+
 export function openPanel(panel) {
   internal.panel = panel;
   changed();
@@ -164,8 +176,12 @@ export function currentHousehold() {
   return state.households.find((household) => household.id === state.householdId) ?? null;
 }
 
+export function visibleLists() {
+  return state.lists.filter((list) => !state.hiddenListIds.has(list.id));
+}
+
 export function currentList() {
-  return state.lists.find((list) => list.id === state.listId) ?? null;
+  return visibleLists().find((list) => list.id === state.listId) ?? null;
 }
 
 export function findItem(itemId) {
@@ -196,4 +212,25 @@ export function userName() {
 
 export function personName(uid, fallback) {
   return currentHousehold()?.memberInfo?.[uid]?.name ?? fallback;
+}
+
+// Worked out from purchases, which can hold hundreds of records. Renders happen on every change, so each result is
+// kept until a snapshot replaces state.purchases (and, for staples, until the hour changes).
+const groupPurchasesByName = memoizeLast((purchases) => readOnly(groupByName(purchases)));
+const frequentPurchases = memoizeLast((purchases) => readOnly(frequentItems(purchases)));
+const listSuggestions = memoizeLast((purchases, listId, hour) => {
+  const onList = purchases.filter((purchase) => purchase.listId === listId);
+  return readOnly({ staples: dueStaples(onList, hour * HOUR_MS), frequent: frequentItems(onList) });
+});
+
+export function purchasesByName() {
+  return groupPurchasesByName(state.purchases);
+}
+
+export function frequentlyBought() {
+  return frequentPurchases(state.purchases);
+}
+
+export function suggestionsForList(listId = state.listId) {
+  return listSuggestions(state.purchases, listId, Math.floor(Date.now() / HOUR_MS));
 }

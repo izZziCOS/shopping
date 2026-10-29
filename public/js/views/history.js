@@ -38,7 +38,9 @@ export function renderHistory() {
   const groups = new Map();
   for (const purchase of state.purchases) {
     const label = formatDay(purchase.boughtAt);
-    groups.set(label, [...(groups.get(label) ?? []), purchaseModel(purchase)]);
+    const models = groups.get(label);
+    if (models) models.push(purchaseModel(purchase));
+    else groups.set(label, [purchaseModel(purchase)]);
   }
   syncChildren(
     byId("history-groups"),

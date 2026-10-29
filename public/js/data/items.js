@@ -1,14 +1,13 @@
 import { Timestamp, collection, doc, serverTimestamp, updateDoc } from "../sdk.js";
 import { DAY_MS } from "../format.js";
-import { NOT_BOUGHT, UNDO_DELAY_MS, canUndoPurchase, knownSection, limitAdds, orderBetween, planAdd } from "../logic.js";
+import { NOT_BOUGHT, canUndoPurchase, knownSection, limitAdds, orderBetween, planAdd } from "../logic.js";
 import { boughtItemChanges, itemRecord, purchaseRecord, readdedItemChanges } from "../records.js";
 import { findItem, hideItems, listItems, requireHouseholdId, requireUser, showItems, state, userName } from "../store.js";
 import { errorCode } from "../errors.js";
-import { commitDeletes, householdRef, itemRef, newBatch, reportError } from "./firestore.js";
+import { commitDeletes, householdRef, itemRef, newBatch } from "./firestore.js";
+import { removeAfterUndoWindow } from "./removals.js";
 
 const PURCHASE_RETENTION_MS = 365 * DAY_MS;
-
-const pendingRemovals = new Set();
 
 function addedBy() {
   return { addedBy: requireUser().uid, addedByName: userName(), createdAt: serverTimestamp() };
@@ -85,29 +84,9 @@ export async function moveItem(itemId, section, before, after) {
 
 export async function removeItems(itemIds) {
   const householdId = requireHouseholdId();
-  const removal = {
-    commit() {
-      clearTimeout(timer);
-      pendingRemovals.delete(removal);
-      commitDeletes(itemIds.map((id) => itemRef(id, householdId))).catch((error) => {
-        showItems(itemIds);
-        reportError(error);
-      });
-    },
-    undo() {
-      clearTimeout(timer);
-      pendingRemovals.delete(removal);
-      showItems(itemIds);
-    },
-  };
-  hideItems(itemIds);
-  const timer = setTimeout(removal.commit, UNDO_DELAY_MS);
-  pendingRemovals.add(removal);
-  return removal.undo;
-}
-
-export function flushPendingRemovals() {
-  const hadRemovals = pendingRemovals.size > 0;
-  [...pendingRemovals].forEach((removal) => removal.commit());
-  return hadRemovals;
+  return removeAfterUndoWindow({
+    hide: () => hideItems(itemIds),
+    show: () => showItems(itemIds),
+    remove: () => commitDeletes(itemIds.map((id) => itemRef(id, householdId))),
+  });
 }

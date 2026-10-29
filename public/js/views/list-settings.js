@@ -2,21 +2,21 @@ import { DEFAULT_LIST_NAME } from "../data/firestore.js";
 import { createList, deleteList, renameList } from "../data/lists.js";
 import { askForText, askToConfirm } from "../dialogs.js";
 import { byId, dialogById, inputById, onClick, onSubmit } from "../dom.js";
-import { currentList, state } from "../store.js";
-import { showError } from "../toast.js";
+import { currentList, listItems, visibleLists } from "../store.js";
+import { showError, toast } from "../toast.js";
 
 function openListSettings() {
   const list = currentList();
   if (!list) return;
   inputById("list-name").value = list.name;
-  byId("delete-list").hidden = state.lists.length < 2;
+  byId("delete-list").hidden = visibleLists().length < 2;
   dialogById("list-dialog").showModal();
 }
 
 async function confirmDeleteList() {
   const list = currentList();
   if (!list) return;
-  const count = state.items.filter((item) => item.listId === list.id).length;
+  const count = listItems(list.id).length;
   const itemNote = count > 0 ? `Its ${count} ${count === 1 ? "item" : "items"} will be deleted too. ` : "";
   const confirmed = await askToConfirm({
     title: `Delete "${list.name}"?`,
@@ -26,13 +26,13 @@ async function confirmDeleteList() {
   });
   if (!confirmed) return;
   dialogById("list-dialog").close();
-  deleteList(list.id).catch((error) => showError(error));
+  toast(`Deleted ${list.name}`, { actionLabel: "Undo", onAction: deleteList(list.id) });
 }
 
 async function promptNewList() {
   const name = await askForText({
     title: "New list",
-    value: state.lists.length === 0 ? DEFAULT_LIST_NAME : "",
+    value: visibleLists().length === 0 ? DEFAULT_LIST_NAME : "",
     placeholder: "e.g. Pharmacy",
     submitLabel: "Create",
     maxLength: 40,

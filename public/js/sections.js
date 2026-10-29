@@ -3,7 +3,8 @@ export const SECTIONS = [
     key: "produce",
     label: "Fruit & veg",
     words: [
-      "apple", "pineapple", "banana", "orange", "lemon", "lime", "grape", "berr", "strawberr", "blueberr",
+      "apple", "pineapple", "banana", "orange", "lemon", "lime", "grape", "grapefruit", "berry", "strawberry",
+      "blueberry", "raspberry",
       "tomato", "potato", "onion", "garlic", "carrot", "cucumber", "pepper", "lettuce", "salad", "spinach",
       "avocado", "mushroom", "broccoli", "cauliflower", "cabbage", "herb", "parsley", "dill", "basil",
       "ginger", "zucchini", "courgette", "eggplant", "aubergine", "pear", "melon", "peach", "plum", "kiwi",
@@ -12,7 +13,7 @@ export const SECTIONS = [
   {
     key: "bakery",
     label: "Bakery",
-    words: ["bread", "baguette", "bun", "croissant", "bagel", "tortilla", "wrap", "cake", "muffin", "pita", "donut"],
+    words: ["bread", "baguette", "bun", "croissant", "bagel", "tortilla", "wrap", "cake", "muffin", "pita", "donut", "dough"],
   },
   {
     key: "dairy",
@@ -63,6 +64,7 @@ export const SECTIONS = [
     words: [
       "toilet paper", "paper towel", "kitchen roll", "detergent", "dish soap", "washing", "sponge", "bin bag",
       "trash bag", "foil", "cling film", "battery", "batteries", "bulb", "cleaner", "bleach", "napkin",
+      "wrapping paper", "tea towel",
     ],
   },
   {
@@ -70,7 +72,7 @@ export const SECTIONS = [
     label: "Personal care",
     words: [
       "shampoo", "conditioner", "toothpaste", "toothbrush", "deodorant", "razor", "lotion", "sunscreen",
-      "tissue", "soap", "vitamin", "medicine", "plaster",
+      "tissue", "soap", "vitamin", "medicine", "plaster", "cod liver oil",
     ],
   },
   { key: "other", label: "Other", words: [] },
@@ -81,9 +83,18 @@ export const DEFAULT_SECTION = "other";
 const sectionsByKey = new Map(SECTIONS.map((section) => [section.key, section]));
 const fallbackSection = SECTIONS.find((section) => section.key === DEFAULT_SECTION) ?? SECTIONS[0];
 
-const keywords = SECTIONS
-  .flatMap((section) => section.words.map((word) => ({ word, key: section.key })))
-  .sort((a, b) => b.word.length - a.word.length);
+// These describe how something is kept rather than what it is, so they decide the section wherever they appear.
+const STORAGE_WORDS = new Set(["frozen", "canned", "tinned"]);
+
+// A keyword matches whole words, plus plurals ("tomatoes", "berries").
+function keywordPattern(word) {
+  const stem = word.endsWith("y") ? `${word.slice(0, -1)}(?:y|ies)` : `${word}(?:s|es)?`;
+  return new RegExp(`(?<!\\p{L})${stem}(?!\\p{L})`, "gu");
+}
+
+const keywords = SECTIONS.flatMap((section) =>
+  section.words.map((word) => ({ word, key: section.key, pattern: keywordPattern(word) })),
+);
 
 export function sectionLabel(key) {
   return (sectionsByKey.get(key) ?? fallbackSection).label;
@@ -93,10 +104,23 @@ export function isKnownSection(key) {
   return sectionsByKey.has(key);
 }
 
+// The keyword nearest the end of the name wins, as that's usually what the item is ("peppermint tea", "chicken
+// soup"). When two end in the same place the longer one wins ("peanut butter" over "butter").
 export function guessSection(name) {
   const text = name.toLocaleLowerCase();
-  const match = keywords.find(({ word }) => new RegExp(`(^|[^\\p{L}])${word}`, "u").test(text));
-  return match?.key ?? DEFAULT_SECTION;
+  let best = { key: DEFAULT_SECTION, rank: [-1, -1, -1] };
+  for (const { word, key, pattern } of keywords) {
+    for (const match of text.matchAll(pattern)) {
+      const rank = [STORAGE_WORDS.has(word) ? 1 : 0, match.index + match[0].length, word.length];
+      if (outranks(rank, best.rank)) best = { key, rank };
+    }
+  }
+  return best.key;
+}
+
+function outranks(a, b) {
+  const index = a.findIndex((value, i) => value !== b[i]);
+  return index !== -1 && a[index] > b[index];
 }
 
 export function orderedSections(savedOrder = []) {

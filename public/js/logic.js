@@ -83,11 +83,26 @@ export function randomCode(bytes = crypto.getRandomValues(new Uint8Array(20))) {
   return Array.from(bytes, (byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join("");
 }
 
+// Remembers the last result and works it out again only when an argument changes (compared with ===).
+export function memoizeLast(compute) {
+  let lastArgs;
+  let lastResult;
+  return (...args) => {
+    if (!lastArgs || args.length !== lastArgs.length || args.some((arg, index) => arg !== lastArgs[index])) {
+      lastArgs = args;
+      lastResult = compute(...args);
+    }
+    return lastResult;
+  };
+}
+
 export function groupByName(purchases) {
   const groups = new Map();
   for (const purchase of purchases) {
     const key = normalize(purchase.name);
-    groups.set(key, [...(groups.get(key) ?? []), purchase]);
+    const group = groups.get(key);
+    if (group) group.push(purchase);
+    else groups.set(key, [purchase]);
   }
   return groups;
 }

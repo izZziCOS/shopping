@@ -85,6 +85,7 @@ export interface AppState {
   pendingSince: number | null;
   online: boolean;
   hiddenItemIds: Set<string>;
+  hiddenListIds: Set<string>;
   panel: Panel;
   editingItemId: string | null;
   pendingInvite: string | null;

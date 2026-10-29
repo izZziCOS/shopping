@@ -28,9 +28,31 @@ describe("guessSection", () => {
     });
   }
 
-  test("only matches at the start of a word", () => {
+  test("only matches whole words, plus plurals", () => {
     assert.equal(guessSection("Candles"), DEFAULT_SECTION);
     assert.equal(guessSection("Foil"), "household");
+    assert.equal(guessSection("Wrapping"), DEFAULT_SECTION);
+    assert.equal(guessSection("Tomatoes"), "produce");
+    assert.equal(guessSection("Candies"), "snacks");
+    assert.equal(guessSection("Bin bags"), "household");
+  });
+
+  test("the keyword nearest the end decides", () => {
+    assert.equal(guessSection("Peppermint tea"), "pantry");
+    assert.equal(guessSection("Mushroom soup"), "pantry");
+    assert.equal(guessSection("Bread flour"), "pantry");
+    assert.equal(guessSection("Cream crackers"), "snacks");
+  });
+
+  test("a longer keyword ending in the same place wins", () => {
+    assert.equal(guessSection("Wrapping paper"), "household");
+    assert.equal(guessSection("Cod liver oil"), "personal");
+    assert.equal(guessSection("Pizza dough"), "bakery");
+  });
+
+  test("frozen and canned decide wherever they appear", () => {
+    assert.equal(guessSection("Frozen berries"), "frozen");
+    assert.equal(guessSection("Canned tomatoes"), "pantry");
   });
 
   test("falls back to other for unknown words", () => {

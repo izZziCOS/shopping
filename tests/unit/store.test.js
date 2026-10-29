@@ -4,7 +4,19 @@ import { beforeEach, describe, test } from "node:test";
 const frames = [];
 globalThis.requestAnimationFrame = (callback) => frames.push(callback);
 
-const { changed, holdRenders, subscribe } = await import("../../public/js/store.js");
+const {
+  changed,
+  currentList,
+  hideList,
+  holdRenders,
+  purchasesByName,
+  setListId,
+  setLists,
+  setPurchases,
+  showList,
+  subscribe,
+  visibleLists,
+} = await import("../../public/js/store.js");
 
 let renders = 0;
 subscribe(() => {
@@ -49,5 +61,30 @@ describe("holdRenders", () => {
     holdRenders()();
     runFrames();
     assert.equal(renders, 0);
+  });
+});
+
+describe("lists being deleted", () => {
+  test("are hidden until shown again", () => {
+    setLists([{ id: "groceries", name: "Groceries" }, { id: "pharmacy", name: "Pharmacy" }], true);
+    setListId("pharmacy");
+    hideList("pharmacy");
+    assert.deepEqual(visibleLists().map((list) => list.id), ["groceries"]);
+    assert.equal(currentList(), null);
+    showList("pharmacy");
+    assert.equal(visibleLists().length, 2);
+    assert.equal(currentList()?.id, "pharmacy");
+  });
+});
+
+describe("purchasesByName", () => {
+  test("is only worked out again when the purchases change", () => {
+    setPurchases([{ name: "Milk" }, { name: "milk" }]);
+    const first = purchasesByName();
+    assert.equal(purchasesByName(), first);
+    assert.equal(first.get("milk")?.length, 2);
+    setPurchases([{ name: "Bread" }]);
+    assert.notEqual(purchasesByName(), first);
+    assert.equal(purchasesByName().get("milk"), undefined);
   });
 });

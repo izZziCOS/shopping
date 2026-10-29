@@ -1,9 +1,9 @@
 import { removeItems, updateItem } from "../data/items.js";
 import { byId, dialogById, inputById, onClick, onSubmit, option, selectById, textAreaById } from "../dom.js";
 import { formatWhen } from "../format.js";
-import { groupByName, normalize, sectionOf } from "../logic.js";
+import { normalize, sectionOf } from "../logic.js";
 import { orderedSections, sectionLabel } from "../sections.js";
-import { currentHousehold, findItem, personName, setEditingItem, state } from "../store.js";
+import { currentHousehold, findItem, personName, purchasesByName, setEditingItem, state, visibleLists } from "../store.js";
 import { showError, toast } from "../toast.js";
 
 export async function removeWithUndo(itemIds, message) {
@@ -35,10 +35,11 @@ export function openEditor(itemId) {
   );
   section.value = sectionOf(item);
   const list = selectById("edit-list");
-  list.replaceChildren(...state.lists.map((entry) => option(entry.id, entry.name)));
+  const lists = visibleLists();
+  list.replaceChildren(...lists.map((entry) => option(entry.id, entry.name)));
   list.value = item.listId;
-  byId("edit-list-label").hidden = state.lists.length < 2;
-  byId("edit-stats").textContent = describeHistory(groupByName(state.purchases).get(normalize(item.name)) ?? []);
+  byId("edit-list-label").hidden = lists.length < 2;
+  byId("edit-stats").textContent = describeHistory(purchasesByName().get(normalize(item.name)) ?? []);
   dialogById("edit-dialog").showModal();
 }
 

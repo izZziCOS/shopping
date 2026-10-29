@@ -18,7 +18,7 @@ A shared household shopping list that updates in real time, built with Firebase 
 - **Drag items (⠿) to put them in any order.** Dropping an item into another section's group moves it to that section. With a keyboard, focus the handle and use the arrow keys. Items nobody has moved stay newest first
 - Items can be edited (✎): name, quantity, a **note** (e.g. "the green brand, only if on sale"), section and which list they're on
 - If you tick something by mistake, unticking it within 10 minutes removes it from history again. Only the person who ticked it can do this, and the security rules enforce the time limit. If someone else unticks it, or it's later than that, the purchase stays in history and the item goes back on the list
-- Deleting a list keeps its purchase history. Those purchases are marked "deleted list" on the history page
+- Deleting a list can be undone for 5 seconds, and keeps its purchase history. Those purchases are marked "deleted list" on the history page
 - Works offline. A banner shows when you're offline or when changes are taking a while to sync, and items that haven't synced yet are marked
 - **Opens without signal and can be installed.** A service worker keeps the app and the Firebase SDK on the device, so it starts offline. It can be added to the home screen: Android and desktop Chrome show an **Install** button under Households, and on iPhone the same place explains Share → Add to Home Screen
 - **Share a list as text**, grouped by shop section with quantities and notes. It uses the phone's share sheet, or copies the text to the clipboard
@@ -79,7 +79,7 @@ The app has no build step: the browser loads the ES modules in [public/js/](publ
 | [sdk.js](public/js/sdk.js) | The single place that loads the Firebase SDK from the CDN (and sets its version) |
 | [store.js](public/js/store.js) | App state and the **only** functions allowed to change it (`openPanel`, `setItems`, `hideItems`…). Redraws are batched into one per animation frame |
 | [readonly.js](public/js/readonly.js) | Wraps the exported `state` so that any change from outside `store.js` throws a `ReadOnlyStateError`, even when it goes through another name for the same thing |
-| [data/](public/js/data/) | Firestore, split by concern: `firestore.js` (connection and shared helpers), `watch.js` (live listeners and which household/list is selected), `households.js`, `lists.js`, `items.js`, `invites.js`. Every action is `async`, so all failures arrive as rejected promises. They never change which screen is shown |
+| [data/](public/js/data/) | Firestore, split by concern: `firestore.js` (connection and shared helpers), `watch.js` (live listeners and which household/list is selected), `households.js`, `lists.js`, `items.js`, `invites.js`, and `removals.js` (the 5-second undo before items or a list are really deleted). Every action is `async`, so all failures arrive as rejected promises. They never change which screen is shown |
 | [records.js](public/js/records.js) | Builds every document the app writes. A unit test checks these fields against `firestore.rules` and `types.d.ts` |
 | [auth.js](public/js/auth.js) | Google and email-link sign-in |
 | [logic.js](public/js/logic.js), [format.js](public/js/format.js), [sections.js](public/js/sections.js), [errors.js](public/js/errors.js) | Pure functions with no page or Firebase code, all unit-tested |

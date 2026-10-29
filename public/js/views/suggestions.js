@@ -1,7 +1,7 @@
 import { byId, element, option, syncChildren, textButton } from "../dom.js";
 import { formatDaysAgo } from "../format.js";
-import { describeInterval, dueStaples, frequentItems, normalize, uniqueByKey } from "../logic.js";
-import { listItems, state, visibleItems } from "../store.js";
+import { describeInterval, normalize, uniqueByKey } from "../logic.js";
+import { frequentlyBought, listItems, suggestionsForList, visibleItems } from "../store.js";
 import { submitItems } from "./add-items.js";
 
 const SUGGESTION_CHIP_COUNT = 8;
@@ -31,11 +31,11 @@ function frequentChip(entry) {
 }
 
 function renderChips() {
-  const purchases = state.purchases.filter((purchase) => purchase.listId === state.listId);
+  const suggestions = suggestionsForList();
   const onList = new Set(listItems().filter((item) => !item.bought).map((item) => normalize(item.name)));
-  shownStaples = dueStaples(purchases, Date.now()).filter((staple) => !onList.has(staple.key));
+  shownStaples = suggestions.staples.filter((staple) => !onList.has(staple.key));
   const staples = new Set(shownStaples.map((staple) => staple.key));
-  const frequent = frequentItems(purchases)
+  const frequent = suggestions.frequent
     .filter((entry) => !onList.has(entry.key) && !staples.has(entry.key))
     .slice(0, SUGGESTION_CHIP_COUNT);
 
@@ -49,7 +49,7 @@ function renderChips() {
 
 function renderAutocomplete() {
   const names = uniqueByKey([
-    ...frequentItems(state.purchases).map((entry) => entry.name),
+    ...frequentlyBought().map((entry) => entry.name),
     ...visibleItems().map((item) => item.name),
   ]);
   syncChildren(

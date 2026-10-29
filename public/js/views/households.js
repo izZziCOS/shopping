@@ -9,7 +9,7 @@ import {
   saveSectionOrder,
 } from "../data/households.js";
 import { revokeInvite } from "../data/invites.js";
-import { flushPendingRemovals } from "../data/items.js";
+import { flushPendingRemovals } from "../data/removals.js";
 import { chooseHousehold } from "../data/watch.js";
 import { askForText, askToConfirm } from "../dialogs.js";
 import { byId, element, inputById, onClick, onSubmit, syncChildren, textButton } from "../dom.js";

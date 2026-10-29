@@ -1,10 +1,10 @@
 import { moveItem, setBought } from "../data/items.js";
 import { byId, element, iconButton, syncChildren } from "../dom.js";
 import { formatDaysAgo, formatFull, formatWhen, millis } from "../format.js";
-import { compareItems, groupByName, groupBySection, normalize } from "../logic.js";
+import { compareItems, groupBySection, normalize } from "../logic.js";
 import { sectionLabel } from "../sections.js";
 import { dragHandle } from "../sortable.js";
-import { findItem, listItems, personName, state } from "../store.js";
+import { findItem, listItems, personName, purchasesByName } from "../store.js";
 import { showError } from "../toast.js";
 import { openEditor } from "./editor.js";
 
@@ -96,7 +96,7 @@ function groupEntry(key, showHeadings) {
 
 export function renderItems(household, showPending) {
   const items = listItems();
-  const purchaseGroups = groupByName(state.purchases);
+  const purchaseGroups = purchasesByName();
   const entry = (item) => itemEntry(item, purchaseGroups.get(normalize(item.name)) ?? [], showPending);
   const toBuy = items
     .filter((item) => !item.bought)

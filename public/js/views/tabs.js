@@ -1,6 +1,6 @@
 import { selectList } from "../data/watch.js";
 import { byId, element, syncChildren, textButton } from "../dom.js";
-import { listItems, state } from "../store.js";
+import { listItems, state, visibleLists } from "../store.js";
 
 function tabId(listId) {
   return `tab-${listId}`;
@@ -21,7 +21,7 @@ function chooseTab(listId, { focus = false } = {}) {
 }
 
 function onTabKeydown(event) {
-  const ids = state.lists.map((list) => list.id);
+  const ids = visibleLists().map((list) => list.id);
   const index = state.listId ? ids.indexOf(state.listId) : -1;
   if (index < 0) return;
   const targets = new Map([
@@ -55,7 +55,7 @@ function tabEntry(list) {
 
 export function renderTabs() {
   const tabs = byId("list-tabs");
-  syncChildren(tabs, state.lists.map(tabEntry));
+  syncChildren(tabs, visibleLists().map(tabEntry));
   const selectedId = state.listId ? tabId(state.listId) : "";
   for (const tab of tabs.children) {
     const selected = tab.id === selectedId;

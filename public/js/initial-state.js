@@ -14,6 +14,7 @@ export function initialState() {
     pendingSince: null,
     online: navigator.onLine,
     hiddenItemIds: new Set(),
+    hiddenListIds: new Set(),
     panel: null,
     editingItemId: null,
     pendingInvite: null,

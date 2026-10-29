@@ -13,6 +13,7 @@ import {
   setPurchases,
   startHousehold,
   state,
+  visibleLists,
 } from "../store.js";
 import { firestore, householdRef, readSnapshot, reportError } from "./firestore.js";
 
@@ -134,8 +135,13 @@ export function selectList(listId) {
   if (listId && state.householdId) writeStorage(selectedListKey(state.householdId), listId);
 }
 
+// Picks another list when the selected one is hidden while it's being deleted.
+export function reselectList() {
+  selectList(preferredListId());
+}
+
 function preferredListId() {
-  const ids = state.lists.map((list) => list.id);
+  const ids = visibleLists().map((list) => list.id);
   const stored = state.householdId ? readStorage(selectedListKey(state.householdId)) : null;
   return firstKnown([stored, state.listId], ids) ?? ids[0] ?? null;
 }

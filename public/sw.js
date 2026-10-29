@@ -23,6 +23,7 @@ const APP_FILES = [
   "js/data/invites.js",
   "js/data/items.js",
   "js/data/lists.js",
+  "js/data/removals.js",
   "js/data/watch.js",
   "js/dialogs.js",
   "js/dom.js",

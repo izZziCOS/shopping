@@ -12,12 +12,12 @@ import {
 } from "./sdk.js";
 import { clearUrl, completeEmailSignIn, completeRedirectSignIn, readInviteFromUrl, useAuth, watchUser } from "./auth.js";
 import { onDataError, useFirestore } from "./data/firestore.js";
-import { flushPendingRemovals } from "./data/items.js";
+import { flushPendingRemovals } from "./data/removals.js";
 import { stopWatching, watchHouseholds } from "./data/watch.js";
 import { bindDialogs } from "./dialogs.js";
 import { byId } from "./dom.js";
 import { currentHousehold, setOnline, setPendingInvite, setUser, state, subscribe, takePendingInvite } from "./store.js";
-import { bindToast, hideToast, showError } from "./toast.js";
+import { hideToasts, showError } from "./toast.js";
 import { bindEditor } from "./views/editor.js";
 import { bindHistory, renderHistory } from "./views/history.js";
 import { bindHouseholds, renderHouseholds } from "./views/households.js";
@@ -122,7 +122,6 @@ async function start() {
   watchUser(handleUserChanged);
 }
 
-bindToast();
 bindDialogs();
 bindSignIn();
 bindHouseholds();
@@ -137,7 +136,7 @@ for (const eventName of ["online", "offline"]) {
 }
 
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden" && flushPendingRemovals()) hideToast();
+  if (document.visibilityState === "hidden" && flushPendingRemovals()) hideToasts();
 });
 
 setPendingInvite(readInviteFromUrl());
